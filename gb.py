@@ -3674,10 +3674,7 @@ class Ghostbuster(pygame.sprite.Sprite):
                         else:
                             if (self.ghost_target != other_buster.ghost_target) or (self.ghost_target == None):
                                 self.proton_death_timer += 1
-                                print("WARNING!!!!", self.proton_death_timer)
                                 if self.proton_death_timer > MIN_BEFORE_STREAM_CROSS:
-
-                                    print("CROSSING THE STREAMS!!!")
                                     if not SIREN.get_busy():
                                         SIREN.play(OVERHEAT_BEEP)
                                     self.crossing_steams = True
@@ -3694,7 +3691,7 @@ class Ghostbuster(pygame.sprite.Sprite):
                         other_buster.proton_death_timer = 0 
                         self.crossing_steams = False
                         other_buster.crossing_steams = False
-        else:
+        else:# PACK OFF
             self.proton_death_timer = 0
             self.crossing_steams = False
             self.ghost_target = None
