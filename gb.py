@@ -501,6 +501,10 @@ class Player():
                 count += 1
         return count
 
+
+
+
+
 def spritePixelColorChange(sprite, old=ABS_GREEN, new=ORIGINAL_UNIFORM_YELLOW):
     # Define the green color range (you can adjust these values)
     # lower = (0, 100, 0)  # Lower range of green
@@ -1303,12 +1307,17 @@ class Player_On_Map(pygame.sprite.Sprite):
                                     if player.has("Portable Lazer Confinement"):
                                         # store the ghosts and clear the trap. 
                                         if player.portable_storage < PLC_MAX_STORAGE:
-                                            for item in player.vehicle_items:
-                                                if item['name'] == "*Full Trap*":
-                                                    player.portable_storage += num_ghost_busted
-                                                    item['name'] = "Ghost Trap"
-                                                    item['cost'] = 600
-                                                    item['unique'] = False
+                                            player.portable_storage += num_ghost_busted
+
+                                            if player.portable_storage > PLC_MAX_STORAGE: 
+                                                player.portable_storage = PLC_MAX_STORAGE
+                                            else:
+                                                for item in player.vehicle_items:
+                                                    if item['name'] == "*Full Trap*":
+                                                        item['name'] = "Ghost Trap"
+                                                        item['cost'] = 600
+                                                        item['unique'] = False
+
                                         else:
                                             # Portable grid is full
                                             ...
