@@ -346,8 +346,10 @@ WINDOW3_IMAGE = pygame.image.load("./window3.png")
 WINDOW4_IMAGE = pygame.image.load("./window4.png") # GB HW WINDOW
 WINDOW5_IMAGE = pygame.image.load("./window5.png")
 WINDOW6_IMAGE = pygame.image.load("./window6.png")
+WINDOW7_IMAGE = pygame.image.load("./window7.png") # ZUUL BUILDING WINDOW
 
-WINDOW_IMAGE_LIST = [WINDOW1_IMAGE, WINDOW2_IMAGE, WINDOW3_IMAGE, WINDOW4_IMAGE, WINDOW5_IMAGE, WINDOW6_IMAGE]
+
+WINDOW_IMAGE_LIST = [WINDOW1_IMAGE, WINDOW2_IMAGE, WINDOW3_IMAGE, WINDOW4_IMAGE, WINDOW5_IMAGE, WINDOW6_IMAGE,WINDOW7_IMAGE]
 
 KEY_IMAGE = pygame.image.load("./keymaster.png")
 GATE_IMAGE = pygame.image.load("./gatekeeper.png")
@@ -6176,6 +6178,7 @@ def generate_map():
     if player == None:
         player = Player()
 
+
     clock = pygame.time.Clock()
 
     # Create sprite groups
@@ -6323,6 +6326,8 @@ def navigate_map():
 
 
     # Player_On_Map # looking for me?? 
+
+    
 
     target_building = None
 
@@ -7583,10 +7588,12 @@ def bust_ghost_at_building(building=None):
         num_windows = random.randint(3,7)
         num_rows = random.randint(1,2)
 
-        has_side_window = bool(random.getrandbits(1))
+        has_left_side_window = bool(random.getrandbits(1))
+        has_right_side_window = bool(random.getrandbits(1))
+
         side_window_image = None
-        if has_side_window: 
-            side_window_image = random.choice([WINDOW1_IMAGE, WINDOW2_IMAGE, WINDOW3_IMAGE, WINDOW4_IMAGE, WINDOW5_IMAGE])  
+        if has_left_side_window or has_right_side_window: 
+            side_window_image = random.choice(WINDOW_IMAGE_LIST)  
 
 
         # Calculate the actual spacing between windows
@@ -7628,8 +7635,12 @@ def bust_ghost_at_building(building=None):
                     window_x = start_x + (window_width + window_spacing) * i
                     screen.blit(window_image, (window_x, window_y))
                 window_y += window_height*2
-            if has_side_window:
-                screen.blit(side_window_image, (doorX + door.image.get_width()+ side_window_image.get_width()*2, doorY - side_window_image.get_height()*0.5))
+
+            if has_right_side_window:
+                screen.blit(side_window_image, (doorX + door.image.get_width() + side_window_image.get_width() * 2, window_y + side_window_image.get_height() * 0.25))
+
+            if has_left_side_window:
+                screen.blit(side_window_image, (doorX - side_window_image.get_width() * 3, window_y + side_window_image.get_height() * 0.25))
 
 
         screen.fill(DARK_GREY, (0, HEIGHT - 175, WIDTH, 10))
