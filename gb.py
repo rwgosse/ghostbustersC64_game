@@ -487,7 +487,12 @@ class Player():
         self.research_aspects = ["Ghost Physiology\nand Behavior", "Technological\nAdvancements", "Ectoplasmic\nStudies", "Paranormal\nPhenomena", "Environmental\nAnalysis", "Psychic\nand Occult\nKnowledge"]
         self.research_allocations = [10] * len(self.research_aspects)
 
-        self.portable_storage = 0 
+        self.portable_storage = 0
+
+        # Warning text variables
+        self.charging_timer = 0
+        self.charging_interval = 8  # Adjust the flashing interval as needed
+        self.charging = False 
 
     def has(self, check_item_name):
 
@@ -502,6 +507,17 @@ class Player():
             if not buster.slimed:
                 count += 1
         return count
+
+    def mobile_proton_charge(self):
+        if self.has("Mobile Proton Charger"):
+            if self.proton_charge < self.max_proton_charge:
+                self.charging_timer += 1
+                if self.charging_timer % self.charging_interval == 0:
+                    self.charging = not self.charging
+                    self.proton_charge += 1
+        if self.proton_charge >= self.max_proton_charge:
+            self.proton_charge = self.max_proton_charge
+
 
 
 
@@ -906,10 +922,10 @@ class Player_On_Map(pygame.sprite.Sprite):
 
         self.below_building = None
 
-        # Warning text variables
-        self.charging_timer = 0
-        self.charging_interval = 8  # Adjust the flashing interval as needed
-        self.charging = False
+        # # Warning text variables
+        # self.charging_timer = 0
+        # self.charging_interval = 8  # Adjust the flashing interval as needed
+        # self.charging = False
 
         self.lastBreadCrumb = Breadcrumb(self.rect.x, self.rect.y)
 
@@ -1099,13 +1115,8 @@ class Player_On_Map(pygame.sprite.Sprite):
                     break
 
 
-        # check if the player has the mobile containment system:
-        if player.has("Mobile Proton Charger"):
-            if player.proton_charge < player.max_proton_charge:
-                self.charging_timer += 1
-                if self.charging_timer % self.charging_interval == 0:
-                    self.charging = not self.charging
-                    player.proton_charge += 1
+        # check if the player has the mobile proton charger system:
+        player.mobile_proton_charge()
 
         if keys[pygame.K_SPACE]:
             if fee_card:
@@ -3320,6 +3331,8 @@ class Ghostbuster(pygame.sprite.Sprite):
                 self.line_end = (self.line_start[0] + int(line_length * math.cos(angle_radians)),
                             self.line_start[1] - int(line_length * math.sin(angle_radians)))
 
+
+
             if self.ghost_target is not None:
                 self.ghost_target.take_damage(damage=1)
                 if self.last_left:
@@ -3335,6 +3348,7 @@ class Ghostbuster(pygame.sprite.Sprite):
                         # GHOST GOES OVER OUR HEAD !
                         self.ghost_target = None 
                         self.proton_pack_on = False
+
 
 
 
@@ -3385,9 +3399,11 @@ class Ghostbuster(pygame.sprite.Sprite):
                 for ghost in ghosts_at_building.sprites():
                     if not ghost.inside:
                         if line_intersects_sprite(self.line_start, self.line_end, ghost.rect):
-                            # Apply appropriate action (e.g., damage the ghost)
-                            ghost.take_damage(damage=1)  # Example method to apply damage to the ghost
-                            self.ghost_target = ghost
+                            if self.ghost_target == None:
+                                if ghost != self.ghost_target: # prevent changing of targets
+                                    # Apply appropriate action (e.g., damage the ghost)
+                                    ghost.take_damage(damage=1)  # Example method to apply damage to the ghost
+                                    self.ghost_target = ghost
                         else:
                             ...
                             # self.ghost_target = None
@@ -6461,23 +6477,22 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
             current_speed = max(14,((HEIGHT - car_y)/100)*car_speed)
             current_speed = min(24,current_speed)
-            
 
+
+
+        # check if the player has the mobile charging system:
+        if vacuum_on == False:
+            player.mobile_proton_charge()
 
         # Draw the street background
         screen.fill(STREET_GREY)
-
         screen.fill(BROWN,(0,0,BUILDING_MARGIN,HEIGHT))
         screen.fill(BROWN,(WIDTH-BUILDING_MARGIN,0,BUILDING_MARGIN,HEIGHT))
-
         centerLine.update(current_speed)
         centerLine.draw(screen)
 
-        
-
         # Draw the Ghostbusters car
         showCar(vehicle_image, car_x, car_y)
-
         vacuum_center = [car_x + vehicle_image.get_width()//2, car_y + 30]
 
         # Change the color of the blue circle every few frames
@@ -7284,6 +7299,8 @@ def bust_ghost_at_building(building=None):
             break
 
     count = 0
+
+    num_ghosts = 2
 
     while count < num_ghosts:
         ghost_at_building = Ghost_at_building()
