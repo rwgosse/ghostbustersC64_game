@@ -2110,7 +2110,6 @@ class Ghost_at_building(pygame.sprite.Sprite):
             self.pk_health = random.randint(INSIDE_GHOST_PK_MIN,INSIDE_GHOST_PK_MAX)
             self.full_pk_health = self.pk_health
 
-
         self.full_speed = self.speed
         self.orig_y = self.rect.y
         self.direction_x = random.choice([-1,1])
@@ -2119,14 +2118,10 @@ class Ghost_at_building(pygame.sprite.Sprite):
         self.trap = None
         self.trapped = False
         self.escaped = False
-
-
-
+        self.taking_damage = False
 
         self.climbed_height = self.rect.y
-
-
-        self.taking_damage = False
+        
 
     def update(self):
         global ghostbusters_at_building
@@ -2289,36 +2284,12 @@ class Ghost_at_building(pygame.sprite.Sprite):
 
             elif self.trapped:
                 self.take_damage(damage=0)
-
                 for buster in ghostbusters_at_building:
                     if self == buster.ghost_target:
                         buster.proton_pack_on = False
-                        # leavePackSoundOn = False
-                        # for buster in ghostbusters_at_building.sprites():
-                        #     if buster.proton_pack_on:
-                        #         leavePackSoundOn = True
-                        #         break
                         buster.ghost_target = None
-                        # if not leavePackSoundOn:
-                        #     PROTON_PACK_CHANNEL.stop()
 
 
-                allTrapped = True
-                for ghost in ghosts_at_building:
-                    if not ghost.trapped:
-                        allTrapped = False
-
-                if allTrapped:
-                    MUSIC.pause()
-                    PKE_CHANNEL.stop()
-                    elapsed_time = 0
-                    for buster in ghostbusters_at_building:
-                        buster.proton_pack_on = False
-                        # leavePackSoundOn = False
-                        buster.ghost_target = None
-                        # PROTON_PACK_CHANNEL.stop()
-
-                ...
                 self.rect.y = self.trap.rect.y - self.trap.light_size
                 # Shrink the sprite's size
                 # self.rect.inflate_ip(-1, -1)
@@ -2497,7 +2468,7 @@ class JumpingGhost(pygame.sprite.Sprite):  # STAY PUFT AT DOORWAY
         screen.blit(self.image, self.rect)
 
 
-class StayPuft(pygame.sprite.Sprite):
+class StayPuft(pygame.sprite.Sprite): # STAY PUFT MARCHING ON MAP, see jumpingghost for doorway version
     def __init__(self, target_building, speed=1):
         super().__init__()
 
@@ -2701,15 +2672,9 @@ class MapGhost(pygame.sprite.Sprite):
 
         if pygame.sprite.collide_rect(self, player.mapSprite):
             if player.has("Ghost Vacuum"):
-                # if not self.halted:
-                #     WOOSH_SOUND.play()
-                # self.halted = True
-
                 if not self.sucked:
                     WOOSH_SOUND.play()
-
                     self.sucked = True  
-
 
         if self.halted:
             self.halted_duration += 1
@@ -2796,7 +2761,7 @@ class MapGhost(pygame.sprite.Sprite):
 
             
 
-            # Move the ghost towards the center
+            # Move the ghost towards the target building (usually Zuul)
             if marshmallowed or end_game:
                 self.rect.move_ip(self.speed*5 * vector.x, self.speed*5 * vector.y)
             else:
@@ -2820,15 +2785,7 @@ class Keymaster(pygame.sprite.Sprite):
         
         self.zuul_building = zuul_building
 
-        # self.target_building = random.choice(buildings.sprites())
-
-        # self.target_center = (
-        #         self.target_building.rect.x + self.target_building.rect.width // 2,
-        #         self.target_building.rect.y + self.target_building.rect.height // 2
-        #         )
-
         self.direction = random.choice(["up","down","left","right"])
-
         self.speed = 3
         self.random_movement = 0.5  # Adjust the random movement factor
         self.xHalted = False
@@ -2836,31 +2793,17 @@ class Keymaster(pygame.sprite.Sprite):
         self.halted_duration = 0
         self.max_halted_duration = 500  # Adjust the maximum halted duration (in frames)
         self.sucked = False
-
-
         self.image = pygame.transform.scale(KEY_IMAGE, (self.size, self.size))
         self.rect = self.image.get_rect(topleft=(x, y))
 
-
         self.prev_x = self.rect.x
         self.prev_y = self.rect.y
-
-    # def random_target(self):
-    #     x = random.randint(0, WIDTH)
-    #     y = random.randint(0, HEIGHT)
-    #     return [x,y]
-
 
     def update(self):
         global buildings
         global end_game
         global keymaster
         global gatekeeper
-
-
-        
-
-
 
         if random.randint(0,200) == 0:
             # self.target_building = random.choice(buildings.sprites())
@@ -2907,13 +2850,15 @@ class Keymaster(pygame.sprite.Sprite):
                         ...
                     if self.rect.centerx > self.zuul_building.rect.left and self.rect.centerx < self.zuul_building.rect.right: 
                     # if (self.zuul_building.rect.x + self.rect.width*2) < self.rect.x <= (self.zuul_building.rect.x + self.zuul_building.rect.width - self.rect.width*2):
+                        
                         if not VOICE_CHANNEL.get_busy():
-                            self.xHalted = True
                             if self == gatekeeper:
                                     VOICE_CHANNEL.play(IM_GATEKEEPER_VOICE)
+                                    self.xHalted = True
                                     
                             elif self == keymaster:
                                     VOICE_CHANNEL.play(IM_KEYMASTER_VOICE)
+                                    self.xHalted = True
 
 
  
@@ -3026,8 +2971,6 @@ class Trap(pygame.sprite.Sprite):
 
     def open_trap(self):
         self.opened = True
-        
-        
         TRAP_CHANNEL.stop()
         TRAP_CHANNEL.play(TRAP_CLOSE_SOUND)
 
@@ -3130,16 +3073,10 @@ class Trap(pygame.sprite.Sprite):
             pygame.draw.ellipse(screen, ellipse_color, left_ellipse_rect, PROTON_BEAM_CIRCLE_LINE_WIDTH)
             pygame.draw.ellipse(screen, ellipse_color, right_ellipse_rect, PROTON_BEAM_CIRCLE_LINE_WIDTH)
 
-            # Set buster completion status
-            for buster in ghostbusters_at_building.sprites():
-                buster.complete = True
-
-
-            
 
 
 
-# Ghostbuster class
+# Ghostbuster class ########################################################
 class Ghostbuster(pygame.sprite.Sprite):
     def __init__(self, name, color=WHITE, x=50, y=50):
         super().__init__()
@@ -3185,7 +3122,6 @@ class Ghostbuster(pygame.sprite.Sprite):
         image1 = spritePixelColorChange(image1, new=uniform_color)
 
         # print(hair_color)
-
         image0 = spritePixelColorChange(image0, old=ABS_BLUE, new=self.hair_color[0])
         image1 = spritePixelColorChange(image1, old=ABS_BLUE, new=self.hair_color[0])
 
@@ -3223,7 +3159,6 @@ class Ghostbuster(pygame.sprite.Sprite):
         self.ascendingStairs = False
         self.climbed_height = 0
         self.complete = False
-
         self.evading_stay_puft = False
 
     
@@ -3393,26 +3328,14 @@ class Ghostbuster(pygame.sprite.Sprite):
                         # GHOST GOES OVER OUR HEAD !
                         self.ghost_target = None 
                         self.proton_pack_on = False
-                        # leavePackSoundOn = False
-                        # for buster in ghostbusters_at_building.sprites():
-                        #     if buster.proton_pack_on:
-                        #         leavePackSoundOn = True
-                        # buster.ghost_target = None
-                        # if not leavePackSoundOn:
-                        #     PROTON_PACK_CHANNEL.stop()
+
                 else:
                     self.line_end = [self.ghost_target.rect.left,self.ghost_target.rect.centery]
                     if self.line_end[0] <= self.rect.center[0]:
                         # GHOST GOES OVER OUR HEAD !
                         self.ghost_target = None 
                         self.proton_pack_on = False
-                        # leavePackSoundOn = False
-                        # for buster in ghostbusters_at_building.sprites():
-                        #     if buster.proton_pack_on:
-                        #         leavePackSoundOn = True
-                        # buster.ghost_target = None
-                        # if not leavePackSoundOn:
-                        #     PROTON_PACK_CHANNEL.stop()
+
 
 
 
@@ -3487,8 +3410,6 @@ class Ghostbuster(pygame.sprite.Sprite):
 
 
 
-
-
     def update(self, keys):
         global selected_ghostbuster
         global ghosts_at_building
@@ -3502,9 +3423,7 @@ class Ghostbuster(pygame.sprite.Sprite):
         yA = self.rect.y
 
         if self.slimed:
-            # self.image = pygame.transform.scale(self.images[self.image_index], (self.size, self.size//2.5))  # Adjust size as needed
             self.image = pygame.transform.scale(BUSTER_MAN_IMAGE1, (self.size, self.size))
-            # self.image = pygame.transform.flip(self.image, True, True)  # Adjust size as needed
             self.image = pygame.transform.rotate(self.image, 270)  # Adjust size as needed
          
         else:
@@ -3527,6 +3446,7 @@ class Ghostbuster(pygame.sprite.Sprite):
                         self.image_index = 0
 
                 else:
+                    # IF ALL GHOSTS ARE TRAPPED:
                     trapped = True  
                     for ghost in ghosts_at_building.sprites():
                         if not ghost.trapped:
@@ -3550,7 +3470,6 @@ class Ghostbuster(pygame.sprite.Sprite):
                 # print(self.rect.y)
                 if keys[pygame.K_LEFT]:
                     self.rect.x -= self.speed
-
                     if self.proton_pack_on and self.ghost_target is not None:
                         if self.ghost_target.pk_health <= self.ghost_target.full_pk_health//3:
                             self.ghost_target.rect.x -= self.speed
@@ -3559,7 +3478,6 @@ class Ghostbuster(pygame.sprite.Sprite):
 
                 elif keys[pygame.K_RIGHT]:
                     self.rect.x += self.speed
-
                     if self.proton_pack_on and self.ghost_target is not None:
                         if self.ghost_target.pk_health <= self.ghost_target.full_pk_health//3:
                             self.ghost_target.rect.x += self.speed
@@ -3569,15 +3487,12 @@ class Ghostbuster(pygame.sprite.Sprite):
 
 
                 if keys[pygame.K_UP]:
-
                     if self.ascendingStairs:
                         floor_here = pygame.sprite.spritecollide(self,floors_of_building,False)
                         if floor_here:
                             self.rect.y -= self.speed
-
                     else:
                         self.rect.y -= self.speed
-
                         if self.proton_pack_on and self.ghost_target is not None:
                             if self.ghost_target.pk_health <= self.ghost_target.full_pk_health//3:
                                 self.ghost_target.rect.y -= self.speed
@@ -3586,13 +3501,10 @@ class Ghostbuster(pygame.sprite.Sprite):
 
 
                 elif keys[pygame.K_DOWN]:
-
                     if self.ascendingStairs:
                         ...
-
                     else:
                         self.rect.y += self.speed
-
                         if self.proton_pack_on and self.ghost_target is not None:
                             if self.ghost_target.pk_health <= self.ghost_target.full_pk_health//3:
                                 self.ghost_target.rect.y += self.speed
@@ -3713,16 +3625,13 @@ class Ghostbuster(pygame.sprite.Sprite):
     def getSlimed(self, voice=VOICE_SLIMED):
         global ghostbusters_at_building
         global traps_at_building
-        # global leavePackSoundOn
         
         if not self.slimed:
-
             if self.has_trap:
                 trap = selected_ghostbuster.drop_trap()
                 self.has_trap = False
                 self.has_full_trap = False
                 traps_at_building.add(trap)
-
 
             VOICE_CHANNEL.play(voice)
             self.slimed = True
@@ -3733,13 +3642,6 @@ class Ghostbuster(pygame.sprite.Sprite):
                 self.rect.x = self.rect.x - self.image.get_width()//2
             self.experience -= random.randint(0,5) + 5
             self.proton_pack_on = False
-            # leavePackSoundOn = False
-            # for buster in ghostbusters_at_building.sprites():
-            #     if buster.proton_pack_on and buster is not self:
-            #         leavePackSoundOn = True
-            # buster.ghost_target = None
-            # if not leavePackSoundOn:
-            #     PROTON_PACK_CHANNEL.stop()
 
     def assign_traits_randomly(self):
 
@@ -3756,11 +3658,9 @@ class Ghostbuster(pygame.sprite.Sprite):
         if elite <= 1:
             self.points += 1
             self.hiring_cost += 50
-
         if elite > 100:
             self.points -= 1
             self.hiring_cost -= 25
-
         if elite > 110:
             self.points -= 1
             self.hiring_cost -= 25
@@ -3773,15 +3673,16 @@ class Ghostbuster(pygame.sprite.Sprite):
             if self.traits[trait] + points_to_assign <= 7:
                 self.traits[trait] += points_to_assign
                 self.points -= points_to_assign
-
-                
-
+          
     def display_traits(self):
         returnText = f"{self.name}:".ljust(14)
         for trait, score in self.traits.items():
             returnText += f"{score}".rjust(8)  # Adjust the width as needed
-
         return returnText
+
+# END Ghostbuster class ########################################################
+
+
 
 def line_intersects_sprite(start, end, sprite_rect):
     # Check if line defined by start and end intersects with sprite_rect
@@ -3932,12 +3833,7 @@ def draw_pk_meter(reading=None, alertLevel="none", silent=False):
             pygame.draw.circle(screen, RED, red_light_pos, light_radius, 1)
 
 
-        
-
-
-
-
-
+ 
 def draw_credits():
     global player
     # Display player credits at the top
@@ -3977,13 +3873,6 @@ def draw_trap_warning():
         # Render warning text
         warning_text_rendered = FONT36.render(" - MARSHMALLOW ALERT! - ", True, WHITE)
 
-        # Calculate position to center the text at the bottom of the screen
-        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-
-
-       
-
     elif trapCount == 0:
         ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
         # Update flashing warning
@@ -3993,12 +3882,6 @@ def draw_trap_warning():
 
         # Render warning text
         warning_text_rendered = FONT36.render("OUT OF TRAPS !    RETURN TO HQ !", True, RED)
-
-        # Calculate position to center the text at the bottom of the screen
-        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-
-
 
     elif player.proton_charge <= MINIMUM_PROTON_CHARGE_FOR_MISSION:
         ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
@@ -4010,13 +3893,6 @@ def draw_trap_warning():
         # Render warning text
         warning_text_rendered = FONT36.render("PROTON PACK POWER LOW !    RETURN TO HQ !", True, RED)
 
-        # Calculate position to center the text at the bottom of the screen
-        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-
-
-
-
     elif player.num_available_ghostbusters() == 0:
         ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
         # Update flashing warning
@@ -4027,17 +3903,11 @@ def draw_trap_warning():
         # Render warning text
         warning_text_rendered = FONT36.render("ALL BUSTERS OUT OF ACTION !    RETURN TO HQ !", True, RED)
 
-        # Calculate position to center the text at the bottom of the screen
-        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-
     else:
         levelUp_Yes = False
         for buster in player.roster:
             if buster.levelPoints > 0:
                 levelUp_Yes = True
-            ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
-
         if levelUp_Yes:
             # Update flashing warning
             trap_warning_timer += 1
@@ -4047,16 +3917,12 @@ def draw_trap_warning():
             # Render warning text
             warning_text_rendered = FONT36.render("LEVELED UP !      RETURN TO HQ !", True, GREEN)
 
-            # Calculate position to center the text at the bottom of the screen
-            warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-            warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-
     # Blit the warning text onto the screen
     if warning_text_rendered is not None and trap_show_warning:
+        # Calculate position to center the text at the bottom of the screen
+        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
+        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
         screen.blit(warning_text_rendered, (warning_x, warning_y))
-
-
-
 
 
 # Inside your game loop or update function
@@ -4156,36 +4022,28 @@ def display_credits_while():
     global player
 
     linePosition = TOP_LINE_POSITION
-    # screen.fill(BROWN, (WIDTH - 300, linePosition, WIDTH, font.get_height() * 1))
     rendered_textA = FONT36.render("Credit: ", True, BLACK)
     screen.blit(rendered_textA, (WIDTH - 200, linePosition))
-
     rendered_textB = FONT36.render(" $" + str(player.cash_balance), True, WHITE)
     screen.blit(rendered_textB, (WIDTH - 200 + rendered_textA.get_width() , linePosition))
     linePosition += (rendered_textB.get_height() * 2)
 
-        # display_two_color_typewriter("Credit:",player_balance, WIDTH - 200, linePosition)
 
 def display_ghostbuster_hq_text():
     global player
 
     text = "Ghostbuster HQ"
-    
     # Load and resize the image
     # image = pygame.image.load("your_image_path.png")
     image = pygame.transform.scale(GB_LOGO, (100, 100))
-
     # Calculate the position for the image (centered at the top)
     x_image = (WIDTH - image.get_width()) // 2
     y_image = 10  # Adjust as needed for vertical positioning
-
     # Calculate the position for the text (just below the image)
     x_text = (WIDTH - FONT36.size(text)[0]) // 2
     y_text = y_image + image.get_height()//2 + 10  # Adjust as needed for vertical spacing
-
     # Render and display the image
     screen.blit(image, (x_image, y_image))
-
     # Render and display the text
     rendered_text = FONT36.render(text, True, BLACK)
     screen.blit(rendered_text, (x_text, y_text))
@@ -4296,7 +4154,7 @@ def showCar(vehicle_image, x_vehicle_image, y_vehicle_image):
 
                 if equipment['name'] == 'Remote Control Trap Vehicle':
                     equipX = x_vehicle_image + vehicle_image.get_width() - 20
-                    equipY = y_vehicle_image + (vehicle_image.get_height() - equipment_image.get_height()) // 2# CENTERED Y
+                    equipY = y_vehicle_image + (vehicle_image.get_height() - equipment_image.get_height()) // 2.5# 
                     screen.blit(equipment_image, (equipX, equipY))
 
                 if equipment['name'] == 'Portable Shield Generator':
@@ -4337,9 +4195,6 @@ def showCar(vehicle_image, x_vehicle_image, y_vehicle_image):
 def display_car_in_garage():
     global player
 
-    # if player_vehicle == None:
-    #     player_vehicle = {"name": "Hearse", "cost": 4800, "speed":90, "capacity": 9}
-
     if player.vehicle is not None:
         # Assuming you have a dictionary mapping vehicle names to images
         # Get the image corresponding to the player's vehicle
@@ -4362,18 +4217,8 @@ def display_car_in_garage():
                 vehicle_image.get_height() + 2 * margin_size
             )
 
-            # Clear the area around the vehicle image
-            # screen.fill(BROWN, fill_rect)
-
             showCar(vehicle_image, x_vehicle_image, y_vehicle_image)
                             
-
-
-
-    # Update the display
-    # pygame.display.flip()
-
-
 
 
 def display_shopping_credit_vehicle_header():
@@ -4381,7 +4226,7 @@ def display_shopping_credit_vehicle_header():
     global linePosition
     linePosition = TOP_LINE_POSITION
 
-    if player.vehicle == None:
+    if player.vehicle == None: # FOR TESTING / DEBUGGING
         player.vehicle = {"name": "Hearse", "cost": 4800, "speed": 90, "capacity": 9, "tank_size": 100}
 
     
@@ -4391,11 +4236,6 @@ def display_shopping_credit_vehicle_header():
     rendered_textB = FONT36.render(" $" + str(player.cash_balance), True, WHITE)
     screen.blit(rendered_textB, (WIDTH - 200 + rendered_textA.get_width() , linePosition))
     linePosition += (rendered_textB.get_height() * 2)
-
-    
-    # rendered_text = font.render("--------------------------", True, BLACK)
-    # screen.blit(rendered_text, (WIDTH - 300, linePosition))
-    # linePosition += (font.get_height() * 2) - 30
 
     # Display player vehicle items on the right side
     rendered_text = FONT36.render(player.vehicle["name"], True, BLACK)
@@ -4454,10 +4294,7 @@ def display_base_add_():
     global player
     global linePosition
 
-
-
     linePosition = 200
-    # screen.fill(BROWN, (WIDTH - 300, linePosition, 300, HEIGHT - linePosition))
     rendered_textA = FONT36.render("Equipped: ", True, BLACK)
     screen.blit(rendered_textA, (WIDTH - 300, linePosition))
     linePosition += (FONT36.get_height() * 2)
@@ -4518,25 +4355,10 @@ def display_base_grid():
                     x_vehicle_image = box_x + (box_size // 2) - (vehicle_image.get_width() // 2)
                     y_vehicle_image = box_y + (box_size // 2) - (vehicle_image.get_height() // 2)
 
-
-                    # # Define a larger fill rectangle to create a margin around the image
-                    # margin_size = 50
-                    # fill_rect = pygame.Rect(
-                    #     x_vehicle_image - margin_size,
-                    #     y_vehicle_image - margin_size,
-                    #     vehicle_image.get_width() + 2 * margin_size,
-                    #     vehicle_image.get_height() + 2 * margin_size
-                    # )
-
-                    # # Clear the area around the vehicle image
-                    # screen.fill(BROWN, fill_rect)
-
                     # Render and display the vehicle image
                     screen.blit(vehicle_image, (x_vehicle_image, y_vehicle_image))
 
-
         else:
-
             # Calculate text position
             text_x = box_x + (box_size // 2)
             text_y = box_y + (box_size // 2) - (FONT18.size(improvement["name"])[1] * len(split_text_into_lines(improvement["name"], box_size, FONT18)) // 2)
@@ -4546,8 +4368,6 @@ def display_base_grid():
                 rendered_text = FONT18.render(line, True, BLACK)
                 screen.blit(rendered_text, (text_x - rendered_text.get_width() // 2, text_y))
                 text_y += rendered_text.get_height()
-
-    # pygame.display.flip()  # Update the display
 
 
 # function to display a list ofthe vehicle mounted equipment
@@ -4602,7 +4422,6 @@ def display_hired_busters():
         rendered_text = FONT36.render(buster.name, True, BLACK)
         screen.blit(rendered_text, (0 + 80, linePosition))
         
-
         xPos = 250
 
         for trait, score in buster.traits.items():
@@ -4699,30 +4518,22 @@ def purchase_equipment(equipment_choices):
     elif selection == "esc":
         shopping_equipment = False  # Update this based on your logic
 
-    
-
     else:
 
         if sell_mode: # SELL MODE
             selected_equipment = int(selection)
 
             if equipment_choices[selected_equipment] in player.vehicle_items and equipment_choices[selected_equipment]['name'] != "Cargo Expansion":
-                ...
                 player.vehicle_items.remove(equipment_choices[selected_equipment])
 
                 if equipment_choices[selected_equipment]['name'] == "Ecto-Fusion Fuel Generator":
-
                     player.vehicle["speed"] -= EXTRA_SPEED_FROM_GENERATOR
-                    # print("remove generator" + str(player.vehicle["speed"]))
 
                 sell_mode = not sell_mode
                 return False
 
             else:
-                ...
-                # print("1")
                 CLOCK_SOUND.play()
-                
                 return False
                         
 
@@ -4736,8 +4547,6 @@ def purchase_equipment(equipment_choices):
                         equipment_cost = equipment_choices[selected_equipment]['cost']
                         # PRICE CHECK, CAN PLAYER AFFORD??
                         if player.cash_balance >= equipment_cost:
-                            #player.cash_balance -= equipment_cost
-                            
 
                             forklift.sprites()[0].load(equipment_choices[selected_equipment])
                             # player.vehicle_items.append(equipment_choices[selected_equipment])
@@ -4747,10 +4556,9 @@ def purchase_equipment(equipment_choices):
 
                             if equipment_choices[selected_equipment]['name'] == "Ecto-Fusion Fuel Generator":
                                 player.vehicle["speed"] += EXTRA_SPEED_FROM_GENERATOR
-                                # print("add generator" + str(player.vehicle["speed"]))
-
 
                             return True
+
                         else:
                             TRAP_NO_SOUND.play()
                             return False
@@ -4837,9 +4645,6 @@ def display_text_typewriter(text, x, y, this_font=FONT36, line_space=2, color=BL
 
     lines = text.split("\n")  # Split the text into lines
 
-
-    
-
     for line in lines:
         rendered_text = ""
         for i in range(len(line) + 1):
@@ -4856,10 +4661,6 @@ def display_text_typewriter(text, x, y, this_font=FONT36, line_space=2, color=BL
 # Function to display player's balance with dollar number in white
 def display_two_color_typewriter(textA, textB, x, y, this_font=FONT36, firstColor=BLACK, secondColor=WHITE):
     global linePosition
-    # balance_text = textA #f"Your Balance: $"#{balance}"
-
-
-    
 
     for i in range(len(textA) + 1):
         rendered_text = this_font.render(textA[:i], True, firstColor)  # GAME INFO & PROMPT TEXT 
@@ -4867,7 +4668,6 @@ def display_two_color_typewriter(textA, textB, x, y, this_font=FONT36, firstColo
         pygame.display.flip()
         pygame.time.delay(40)  # Adjust the delay for typing speed
         TYPE_SOUND.play()
-
 
     rendered_text_static = this_font.render(textA, True, firstColor)
     rendered_text_variable = ""
@@ -4880,7 +4680,6 @@ def display_two_color_typewriter(textA, textB, x, y, this_font=FONT36, firstColo
         TYPE_SOUND.play()
 
     linePosition += (rendered_text_variable.get_height() * 2) + 1 
-
     return rendered_text_variable
 
 def display_two_color(textA, textB, x, y, this_font=FONT36, firstColor=BLACK, secondColor=WHITE):
@@ -4893,10 +4692,6 @@ def display_two_color(textA, textB, x, y, this_font=FONT36, firstColor=BLACK, se
     screen.blit(rendered_text_variable, (x + rendered_text_static.get_width(), linePosition))
 
     linePosition += (rendered_text_variable.get_height() * 2) + 1
-
-    # pygame.display.flip()
-    # TYPE_SOUND.play()
-
     return rendered_text_variable
 
 
@@ -4995,21 +4790,14 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
             if event.type == pygame.KEYDOWN:
                 TYPE_SOUND.play()
 
-                # if event.key == pygame.K_RALT or event.key == pygame.K_LALT:
-                #     return "s"
-
-
                 if keyContinue:
                     return
 
                 if shopping:
-
                     if event.unicode.lower() == "s":
                         return "s"
-
                     if event.unicode.lower() == "r":
                         return "s"
-
                     if event.unicode.lower() == "e":
                         return "e"
 
@@ -5098,10 +4886,8 @@ def start_loop():
     x_text = (WIDTH - FONT36.size(text)[0]) // 2
     linePosition = FONT36.get_height()
     # Render and display the text
-    # rendered_text = font.render(text, True, BLACK)
-    # screen.blit(rendered_text, (x_text, linePosition))
     display_text_typewriter(text, x_text, linePosition)
-    # linePosition += font.get_height() * 2
+
 
     # Welcome message
     welcome_message = "For Professional\nParanormal\nInvestigations\nand Eliminations."
@@ -5412,10 +5198,7 @@ def equipment_shopping_loop(mode):
 
         forklift.update()
         forklift.draw(screen)
-
-        
-        
-
+                
         # display_credits_while()
         if fresh_purchase:
             # display_vehicle_equipment_add_equipment()
@@ -5424,11 +5207,6 @@ def equipment_shopping_loop(mode):
             display_vehicle_equipment()
 
         fresh_purchase = purchase_equipment(equipment_choices)
-
-
-        
-
-        
 
         pygame.display.flip()
 
@@ -7024,7 +6802,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
-                    available_ghostbusters = [ghostbuster1, ghostbuster2, ghostbuster3]
+                    available_ghostbusters = [ghostbuster1, ghostbuster2, ghostbuster3, ghostbuster4]
 
                     
                     # Filter out None values
@@ -7454,7 +7232,6 @@ def bust_ghost_at_building(building=None):
     ghosts_at_building = pygame.sprite.Group()
     traps_at_building = pygame.sprite.Group()
     doors_at_building = pygame.sprite.Group()
-
     ghosts_captured = pygame.sprite.Group() 
 
     # Create Ghostbuster sprites
@@ -7466,6 +7243,7 @@ def bust_ghost_at_building(building=None):
     ghostbuster1 = None 
     ghostbuster2 = None
     ghostbuster3 = None
+    ghostbuster4 = None
 
     left_most_buster = None
 
@@ -7480,18 +7258,22 @@ def bust_ghost_at_building(building=None):
                 ghostbuster1.set_for_building(BLUE, WIDTH - 120 - 150, HEIGHT - 110, has_trap=True)
                 ghostbusters_at_building.add(ghostbuster1)
         elif ghostbuster2 == None:
-                if not buster.slimed:
-                    ghostbuster2 = buster
-                    ghostbuster2.set_for_building(RED, WIDTH - 120 - 100, HEIGHT - 110)
-                    ghostbusters_at_building.add(ghostbuster2)
+            if not buster.slimed:
+                ghostbuster2 = buster
+                ghostbuster2.set_for_building(RED, WIDTH - 120 - 100, HEIGHT - 110)
+                ghostbusters_at_building.add(ghostbuster2)
         # elif ghostbuster3 == None:
         #         if not buster.slimed:
         #             ghostbuster3 = buster
         #             ghostbuster3.set_for_building(YELLOW, WIDTH - 120 - 50, HEIGHT - 100)
         #             ghostbusters_at_building.add(ghostbuster3)
+        # elif ghostbuster4 == None:
+        #         if not buster.slimed:
+        #             ghostbuster4 = buster
+        #             ghostbuster4.set_for_building(YELLOW, WIDTH - 120 - 50, HEIGHT - 100)
+        #             ghostbusters_at_building.add(ghostbuster4)
 
     selected_ghostbuster = ghostbuster1
-
     targeted_buster = random.choice(ghostbusters_at_building.sprites())
 
     # Create Ghost sprite
@@ -7501,7 +7283,6 @@ def bust_ghost_at_building(building=None):
             num_ghosts = random.choice([1,1,1,2])
             break
 
-    
     count = 0
 
     while count < num_ghosts:
@@ -7663,7 +7444,7 @@ def bust_ghost_at_building(building=None):
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
-                    available_ghostbusters = [ghostbuster1, ghostbuster2, ghostbuster3]
+                    available_ghostbusters = [ghostbuster1, ghostbuster2, ghostbuster3, ghostbuster4]
                     
                     # Filter out None values
                     available_ghostbusters = [ghostbuster for ghostbuster in available_ghostbusters if ghostbuster is not None]
@@ -7727,11 +7508,18 @@ def bust_ghost_at_building(building=None):
 
         keys = pygame.key.get_pressed()
 
-        
-        
 
-        allLeft = True
-        if len(ghosts_at_building.sprites()) == 0:
+        # DETERMINE IF ALL GHOSTS ARE TRAPPED (inside trap or caught in beam)
+        if all(ghost.trapped for ghost in ghosts_at_building):  
+            MUSIC.pause()
+            PKE_CHANNEL.stop()
+            elapsed_time = 0
+            for buster in ghostbusters_at_building:
+                buster.proton_pack_on = False
+                buster.ghost_target = None
+
+        # ONCE ALL GHOSTS HAVE BEEN CAUGHT INSIDE TRAP:
+        if len(ghosts_at_building.sprites()) == 0: 
             PKE_CHANNEL.stop()
             elapsed_time = 0
 
@@ -8243,16 +8031,15 @@ def enterOrExit_building(building=None, enter=True, exit=False):
 
 
         # Update sprites
-
         ghostbusters_at_building.update(keys)
 
-
+        if len(ghostbusters_at_building.sprites()) == 0:
+            running = False
+            return
 
         
         # Draw everything
-
         doors_at_building.draw(screen)
-
         if sign_image is not None:
             # screen.fill(WHITE,(signX-1, signY-1,sign_image.get_width()+2,sign_image.get_height()+2))
             pygame.draw.rect(screen, BLACK, pygame.Rect(signX-2, signY-2,sign_image.get_width()+4,sign_image.get_height()+4),  0, 3)
@@ -8264,9 +8051,7 @@ def enterOrExit_building(building=None, enter=True, exit=False):
         for buster in ghostbusters_at_building.sprites():
             buster.display_name(screen)
 
-        if len(ghostbusters_at_building.sprites()) == 0:
-            running = False
-            return
+        
 
         pygame.display.flip()
         clock.tick(60)
@@ -8400,7 +8185,7 @@ def start_game():
         elif game_mode == 1:
             purchase_car()
 
-            if START_GAME == 1:
+            if START_GAME == 1: # FOR TESTING / DEBUGGING
                 player.vehicle_items.append({"name": "Ghost Bait", "cost": 400, 'unique': True})
                 player.vehicle_items.append({"name": "Ghost Trap", "cost": 600, 'unique': False})
                 player.vehicle_items.append({"name": "Ghost Vacuum", "cost": 500, 'unique': True})
