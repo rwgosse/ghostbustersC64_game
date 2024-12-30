@@ -201,7 +201,7 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 1000
+ZUUL_END_GAME_PK_REQUIREMENT = 5
 NUM_FOORS_IN_ZUUL_BUILDING = 4 # MUST BE EVEN
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
@@ -225,6 +225,8 @@ MAX_NUM_OF_SPECIAL_FEES = 2
 MIN_BEFORE_STREAM_CROSS = 20
 CROSS_STEAMS_DEATH_TIMER = 200
 GHOST_ESCAPE_TIME = 30000 # 1 minute = 60,000 milliseconds
+
+ZUUL_CLIMB_WALL_WIDTH = 40
 
 # AUDIO CONSTANTS --------------------------------------------------------------------------
 pygame.mixer.init()
@@ -317,7 +319,7 @@ GHOST11_IMAGE = pygame.image.load("./ghost11.png")
 GHOST12_IMAGE = pygame.image.load("./ghost12.png")
 GHOST13_IMAGE = pygame.image.load("./ghost13.png")
 
-
+CEILING_GOO_IMAGE = pygame.image.load("./Ceiling_Slime.png")   
 DRIP_OF_GOO_IMAGE = pygame.image.load("./goo_drip.png")
 
 GHOST_IMAGE_LIST = [MAP_GHOST_IMAGE,GHOST2_IMAGE,GHOST3_IMAGE,GHOST4_IMAGE,GHOST5_IMAGE,GHOST6_IMAGE,
@@ -337,6 +339,8 @@ DOOR3_IMAGE = pygame.image.load("./door3.png") # REVOLVING DOORS
 DOOR4_IMAGE = pygame.image.load("./door4.png") # DOOR WITH COLUMNS
 DOOR5_IMAGE = pygame.image.load("./door5.png") # BIG DOOR
 DOOR_HQ_IMAGE = pygame.image.load("./hq_door.png") # GB HQ BIG DOOR
+
+DOOR_STAIRS = pygame.image.load("./door_stairs.png")  # STAIRS TO ROOF OF ZUUL
 
 DOOR_IMAGE_LIST = [DOOR1_IMAGE, DOOR2_IMAGE, DOOR3_IMAGE,DOOR4_IMAGE,DOOR5_IMAGE]
 
@@ -915,7 +919,6 @@ class Player_On_Map(pygame.sprite.Sprite):
 
         car_speed = player.vehicle["speed"] // CAR_SPEED_ON_MAP_FACTOR
 
-
         self.Xspeed = car_speed #Xspeed
         self.Yspeed = car_speed #Yspeed
         self.color_timer = 0
@@ -1395,12 +1398,19 @@ class Floor_in_building(pygame.sprite.Sprite):
 class Drip_of_goo(pygame.sprite.Sprite):
     def __init__(self, minX,maxX,Y, radius=12,falling=False):
         super().__init__()
-        # Create a circular image for the goo
-        self.radius = radius  # Adjust the radius of the circle
-        self.image = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
-        pygame.draw.circle(self.image, GREEN, (self.radius, self.radius), self.radius)
-        # The above line draws a green circle with the given radius centered at (self.radius, self.radius)
-        
+
+        self.radius = radius
+        # Load and scale the CEILING_GOO_IMAGE
+        original_width, original_height = CEILING_GOO_IMAGE.get_size()
+        new_height = self.radius * 2  # Height is based on the radius (old circle's diameter)
+        scaling_factor = new_height / original_height
+        new_width = int(original_width * scaling_factor)  # Adjust the width to maintain aspect ratio
+
+        self.image = pygame.transform.scale(CEILING_GOO_IMAGE, (new_width, new_height))
+        # 50/50 chance to flip the image horizontally
+        if random.choice([True, False]):
+            self.image = pygame.transform.flip(self.image, True, False)
+
         if falling:
             self.image = DRIP_OF_GOO_IMAGE
             original_width, original_height = self.image.get_size()
@@ -1415,7 +1425,7 @@ class Drip_of_goo(pygame.sprite.Sprite):
 
 
         self.rect = self.image.get_rect()
-        position = [random.randint(minX,maxX),Y-5]
+        position = [random.randint(minX,maxX),Y]
         self.rect.midtop = position  # Position the goo sprite at the bottom-left corner of the floor
 
         # Variables for dripping behavior
@@ -1449,7 +1459,7 @@ class Drip_of_goo(pygame.sprite.Sprite):
         global goo_in_building
         global selected_ghostbuster
         # Create a new drop of goo below the current position
-        new_drop = Drip_of_goo(self.rect.centerx,self.rect.centerx, self.rect.bottom + self.radius * 2,radius=10,falling=True) # Position the new drop below the current one
+        new_drop = Drip_of_goo(self.rect.centerx,self.rect.centerx, self.rect.bottom + self.radius,radius=8,falling=True) # Position the new drop below the current one
         goo_in_building.add(new_drop)  # Add the new drop to the sprite group
 
         if 0 < self.rect.y < HEIGHT : # IS THE BUSTER NEAR ENOUGH TO HEAR
@@ -2801,6 +2811,7 @@ class Keymaster(pygame.sprite.Sprite):
         self.random_movement = 0.5  # Adjust the random movement factor
         self.xHalted = False
         self.yHalted = False
+        self.frozen = False
         self.halted_duration = 0
         self.max_halted_duration = 500  # Adjust the maximum halted duration (in frames)
         self.sucked = False
@@ -2826,7 +2837,7 @@ class Keymaster(pygame.sprite.Sprite):
 
             self.speed = 5
 
-            if not self.yHalted:
+            if not self.yHalted and not self.frozen:
 
                 if not is_obstacle_between(self, "up") and not is_obstacle_between(self, "down"):
                     if self.rect.y < self.zuul_building.rect.bottom: 
@@ -2849,7 +2860,7 @@ class Keymaster(pygame.sprite.Sprite):
 
 
 
-            if (self.yHalted) and (not self.xHalted):
+            if (self.yHalted) and (not self.xHalted) and (not self.frozen):
                 if not is_obstacle_between(self, "left") and not is_obstacle_between(self, "right"):
                     if self.rect.x < self.zuul_building.rect.x + self.zuul_building.rect.width//2.5 : 
                         self.direction = "right"
@@ -2859,21 +2870,23 @@ class Keymaster(pygame.sprite.Sprite):
                         self.rect.x -= self.speed
                     else:
                         ...
-                    if self.rect.centerx > self.zuul_building.rect.left and self.rect.centerx < self.zuul_building.rect.right: 
+                    if (self.rect.centerx > (self.zuul_building.rect.left + self.rect.width)) and (self.rect.centerx < (self.zuul_building.rect.right - self.rect.width)): 
                     # if (self.zuul_building.rect.x + self.rect.width*2) < self.rect.x <= (self.zuul_building.rect.x + self.zuul_building.rect.width - self.rect.width*2):
-                        
-                        if not VOICE_CHANNEL.get_busy():
-                            if self == gatekeeper:
-                                    VOICE_CHANNEL.play(IM_GATEKEEPER_VOICE)
-                                    self.xHalted = True
-                                    
-                            elif self == keymaster:
-                                    VOICE_CHANNEL.play(IM_KEYMASTER_VOICE)
-                                    self.xHalted = True
+                        self.frozen = True
+
+            if (self.yHalted) and (not self.xHalted) and (self.frozen):
+                if not VOICE_CHANNEL.get_busy():
+                    if self == gatekeeper:
+                            VOICE_CHANNEL.play(IM_GATEKEEPER_VOICE)
+                            self.xHalted = True
+                            
+                    elif self == keymaster:
+                            VOICE_CHANNEL.play(IM_KEYMASTER_VOICE)
+                            self.xHalted = True
 
 
  
-            if self.xHalted and self.yHalted:
+            if self.xHalted and self.yHalted and self.frozen:
                 if self == keymaster: 
                     if gatekeeper.yHalted and gatekeeper.xHalted:
                         if not VOICE_CHANNEL.get_busy():
@@ -3880,65 +3893,32 @@ def draw_trap_warning():
 
 
     if marshmallowed:
-        ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
-        # Update flashing warning
-        trap_warning_timer += 1
-        if trap_warning_timer % trap_warning_interval == 0:
-            trap_show_warning = not trap_show_warning
-
-        # Render warning text
         warning_text_rendered = FONT36.render(" - MARSHMALLOW ALERT! - ", True, WHITE)
 
     elif trapCount == 0:
-        ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
-        # Update flashing warning
-        trap_warning_timer += 1
-        if trap_warning_timer % trap_warning_interval == 0:
-            trap_show_warning = not trap_show_warning
-
-        # Render warning text
         warning_text_rendered = FONT36.render("OUT OF TRAPS !    RETURN TO HQ !", True, RED)
 
     elif player.proton_charge <= MINIMUM_PROTON_CHARGE_FOR_MISSION:
-        ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
-        # Update flashing warning
-        trap_warning_timer += 1
-        if trap_warning_timer % trap_warning_interval == 0:
-            trap_show_warning = not trap_show_warning
-
-        # Render warning text
         warning_text_rendered = FONT36.render("PROTON PACK POWER LOW !    RETURN TO HQ !", True, RED)
 
     elif player.num_available_ghostbusters() == 0:
-        ... #HERE I WANT TO ADD TEXT THAT WILL FLASH
+        warning_text_rendered = FONT36.render("ALL BUSTERS OUT OF ACTION !    RETURN TO HQ !", True, RED)
+
+    elif any(buster.levelPoints > 0 for buster in player.roster):
+        warning_text_rendered = FONT36.render("LEVELED UP! RETURN TO HQ!", True, GREEN)
+
+
+    # Blit the warning text onto the screen
+    if warning_text_rendered is not None:
         # Update flashing warning
         trap_warning_timer += 1
         if trap_warning_timer % trap_warning_interval == 0:
             trap_show_warning = not trap_show_warning
-
-        # Render warning text
-        warning_text_rendered = FONT36.render("ALL BUSTERS OUT OF ACTION !    RETURN TO HQ !", True, RED)
-
-    else:
-        levelUp_Yes = False
-        for buster in player.roster:
-            if buster.levelPoints > 0:
-                levelUp_Yes = True
-        if levelUp_Yes:
-            # Update flashing warning
-            trap_warning_timer += 1
-            if trap_warning_timer % trap_warning_interval == 0:
-                trap_show_warning = not trap_show_warning
-
-            # Render warning text
-            warning_text_rendered = FONT36.render("LEVELED UP !      RETURN TO HQ !", True, GREEN)
-
-    # Blit the warning text onto the screen
-    if warning_text_rendered is not None and trap_show_warning:
-        # Calculate position to center the text at the bottom of the screen
-        warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
-        warning_y = HEIGHT - warning_text_rendered.get_height() - 10
-        screen.blit(warning_text_rendered, (warning_x, warning_y))
+        if trap_show_warning:
+            # Calculate position to center the text at the bottom of the screen
+            warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
+            warning_y = HEIGHT - warning_text_rendered.get_height() - 10
+            screen.blit(warning_text_rendered, (warning_x, warning_y))
 
 
 # Inside your game loop or update function
@@ -6560,18 +6540,16 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
     global floors_of_building
     global goo_in_building
     global floor_gap
-    # global leavePackSoundOn
     global marshmallowed
     global end_game
     global game_over
 
-    # global traps_at_building
+
 
 
     # Create sprite groups
     ghostbusters_at_building = pygame.sprite.Group()
     ghosts_at_building = pygame.sprite.Group()
-    traps_at_building = pygame.sprite.Group()
     floors_of_building = pygame.sprite.Group()
     floor_level_sprites = pygame.sprite.Group()  # Create a sprite group for floor level sprites
 
@@ -6594,7 +6572,6 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
         if ghostbuster1 == None:
             if not buster.slimed:
                 ghostbuster1 = buster
-                # ghostbuster1.set_for_building(BLUE, WIDTH - 120 - 150, HEIGHT - 110, has_trap=True)
                 ghostbuster1.set_for_stairs(BLUE, WIDTH - 120 - 150, HEIGHT - 110)
                 ghostbusters_at_building.add(ghostbuster1)
         elif ghostbuster2 == None:
@@ -6625,6 +6602,12 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
     first_floor = Floor_in_building(0,floor_level_y, WIDTH, step_height*2)
     floors_of_building.add(first_floor)
 
+    # Create the darkness below the first floor
+    darkness_height = HEIGHT // 3  # Adjust this value to control how tall the darkness is
+    darkness_y = first_floor.rect.y + first_floor.rect.height  # Position the darkness below the first floor
+    darkness_floor = Floor_in_building(0, darkness_y, WIDTH, darkness_height, color=BLACK)
+    floors_of_building.add(darkness_floor)
+
     door_image = random.choice([DOOR1_IMAGE, DOOR2_IMAGE])
     doorX = WIDTH - door_image.get_width() - 50
     doorY = floor_level_y - door_image.get_height()
@@ -6652,14 +6635,20 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
         # ADD THE TOP FLOOR EXIT DOOR
         if level == num_of_floors:
-            door_image = random.choice([DOOR1_IMAGE, DOOR2_IMAGE])
-            doorX = WIDTH - door_image.get_width() - 50
+            door_image = DOOR_STAIRS
+            doorX = WIDTH - door_image.get_width() - 40
             doorY = floor_level_y - door_image.get_height()
             topDoor = Door(doorX,doorY,door_image)
             doors_in_building.add(topDoor)
 
-            floor = Floor_in_building(0,floor_level_y - floor_gap - step_height*2  , WIDTH, step_height*2 , color=STREET_GREY)
-            floors_of_building.add(floor)
+            ceiling_floor = Floor_in_building(ZUUL_CLIMB_WALL_WIDTH,floor_level_y - floor_gap - step_height*2  , WIDTH-ZUUL_CLIMB_WALL_WIDTH, step_height*2 , color=STREET_GREY)
+            floors_of_building.add(ceiling_floor)
+
+            # Create the roof above the ceiling floor
+            roof_height = HEIGHT // 3  # Adjust this value to control how tall the roof is
+            roof_y = ceiling_floor.rect.y - roof_height  # Position the roof right above the ceiling floor
+            roof = Floor_in_building(0, roof_y, WIDTH, roof_height, color=BLACK)
+            floors_of_building.add(roof)
 
 
         if (level % 2) == 0:
@@ -6719,6 +6708,11 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-20,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
+
+        # Create a sprite for dripping goo in the center
+        if level > 2 and (random.randint(0,100) <= 50):
+            goo_sprite = Drip_of_goo(WIDTH//2-20,WIDTH//2+20,floor_level_y+step_height)  # Adjust position as needed
+            goo_in_building.add(goo_sprite)
 
         floor_level_y -= floor_gap
         level +=1
@@ -6944,9 +6938,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
         
         # Draw everything ############################################################
         screen.fill(BROWN)
+        screen.fill(STREET_GREY, (0,0, ZUUL_CLIMB_WALL_WIDTH, HEIGHT)) # LEFT WALL
+        screen.fill(STREET_GREY, (WIDTH-ZUUL_CLIMB_WALL_WIDTH,0, ZUUL_CLIMB_WALL_WIDTH, HEIGHT)) # RIGHT WALL
         floors_of_building.draw(screen)
-        screen.fill(STREET_GREY, (0,0, 40, HEIGHT)) # LEFT WALL
-        screen.fill(STREET_GREY, (WIDTH-40,0, 40, HEIGHT)) # RIGHT WALL
         floor_level_sprites.draw(screen)
         doors_in_building.draw(screen)
         goo_in_building.draw(screen)
@@ -7299,9 +7293,6 @@ def bust_ghost_at_building(building=None):
             break
 
     count = 0
-
-    num_ghosts = 2
-
     while count < num_ghosts:
         ghost_at_building = Ghost_at_building()
         ghosts_at_building.add(ghost_at_building)
@@ -7497,7 +7488,6 @@ def bust_ghost_at_building(building=None):
                                         trap_here[0].kill()
 
                         
-
                 elif event.key == (pygame.K_LCTRL or pygame.K_RCTRL):
                     if not selected_ghostbuster.complete:
 
@@ -7506,15 +7496,6 @@ def bust_ghost_at_building(building=None):
 
                         elif selected_ghostbuster.proton_pack_on:
                             selected_ghostbuster.proton_pack_on = False
-                            # leavePackSoundOn = False
-                            # for buster in ghostbusters_at_building.sprites():
-                            #     if buster.proton_pack_on:
-                            #         leavePackSoundOn = True
-                            #         break
-
-
-                            # if not leavePackSoundOn and PROTON_PACK_CHANNEL.get_busy():
-                            #     PROTON_PACK_CHANNEL.stop()
 
                 elif event.key == pygame.K_SPACE:
                     if not selected_ghostbuster.complete:
@@ -7551,9 +7532,7 @@ def bust_ghost_at_building(building=None):
 
 
             if playonce:
-                
                 #SUCCESS
-
                 if not VOICE_CHANNEL.get_busy():
                     MUSIC.unpause()
 
