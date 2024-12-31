@@ -201,8 +201,8 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 5
-NUM_FOORS_IN_ZUUL_BUILDING = 4 # MUST BE EVEN
+ZUUL_END_GAME_PK_REQUIREMENT = 1000
+NUM_FOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
 GHOST_PK_MIN = 50
@@ -318,12 +318,14 @@ GHOST10_IMAGE = pygame.image.load("./ghost10.png")
 GHOST11_IMAGE = pygame.image.load("./ghost11.png")
 GHOST12_IMAGE = pygame.image.load("./ghost12.png")
 GHOST13_IMAGE = pygame.image.load("./ghost13.png")
+GHOST14_IMAGE = pygame.image.load("./ghost14.png")
 
 CEILING_GOO_IMAGE = pygame.image.load("./Ceiling_Slime.png")   
 DRIP_OF_GOO_IMAGE = pygame.image.load("./goo_drip.png")
 
 GHOST_IMAGE_LIST = [MAP_GHOST_IMAGE,GHOST2_IMAGE,GHOST3_IMAGE,GHOST4_IMAGE,GHOST5_IMAGE,GHOST6_IMAGE,
-    GHOST7_IMAGE,GHOST8_IMAGE, GHOST9_IMAGE, GHOST10_IMAGE, GHOST11_IMAGE, GHOST12_IMAGE, GHOST13_IMAGE
+    GHOST7_IMAGE,GHOST8_IMAGE, GHOST9_IMAGE, GHOST10_IMAGE, GHOST11_IMAGE, GHOST12_IMAGE, GHOST13_IMAGE,
+    GHOST14_IMAGE
     ]
 
 # BUSTER_MAN_IMAGE1 = pygame.image.load("./gb/gb2.png")
@@ -1372,6 +1374,18 @@ class Player_On_Map(pygame.sprite.Sprite):
         self.prev_y = self.rect.y
 
 
+        # IF THE PLAYER'S ICON GETS NEAR THE CARD, REMOVE THE CARD
+        if fee_card:
+            if fee_card.slide_direction == "left":
+                if abs(self.rect.x - (fee_card.current_x + CARD_WIDTH)) < 20:
+                    fee_card.state = "sliding_out"
+
+            elif fee_card.slide_direction == "right":
+                if abs(self.rect.x + self.rect.width - fee_card.current_x) < 20:
+                    fee_card.state = "sliding_out"
+
+
+
 # a floor inside the building that can be walked upon
 class Floor_in_building(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color=GREY):
@@ -1537,6 +1551,11 @@ class IndexCard:
                     self.state = "destroyed"
                     fee_card = None
                     self = None
+
+
+
+
+
 
 
     def clear_card_manually(self):
@@ -6636,7 +6655,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
         # ADD THE TOP FLOOR EXIT DOOR
         if level == num_of_floors:
             door_image = DOOR_STAIRS
-            doorX = WIDTH - door_image.get_width() - 40
+            doorX = WIDTH - door_image.get_width() - ZUUL_CLIMB_WALL_WIDTH
             doorY = floor_level_y - door_image.get_height()
             topDoor = Door(doorX,doorY,door_image)
             doors_in_building.add(topDoor)
@@ -6658,7 +6677,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(20,WIDTH-WIDTH//3,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH-WIDTH//3,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, WIDTH-130, floor_level_y-50)  # Adjust the position as needed
@@ -6678,7 +6697,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(WIDTH-WIDTH//3+WIDTH//6+20,WIDTH-20,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(WIDTH-WIDTH//3+WIDTH//6+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
         else:
@@ -6688,7 +6707,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(20,WIDTH//6,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH//6,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, 50, floor_level_y-50)  # Adjust the position as needed
@@ -6706,12 +6725,12 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-20,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
         # Create a sprite for dripping goo in the center
         if level > 2 and (random.randint(0,100) <= 50):
-            goo_sprite = Drip_of_goo(WIDTH//2-20,WIDTH//2+20,floor_level_y+step_height)  # Adjust position as needed
+            goo_sprite = Drip_of_goo(WIDTH//2-25,WIDTH//2+25,floor_level_y+step_height)  # Adjust position as needed
             goo_in_building.add(goo_sprite)
 
         floor_level_y -= floor_gap
