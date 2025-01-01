@@ -192,7 +192,7 @@ STAY_PUFT_AT_ZUUL_FINE = 5000
 
 FIRST_RESPONDERS_DISCOUNT_PERCENT = 0.50
 
-CAR_SPEED_ON_MAP_FACTOR = 18
+CAR_SPEED_ON_MAP_FACTOR = 15
 
 # ****
 START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
@@ -201,8 +201,8 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 1000
-NUM_FOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
+ZUUL_END_GAME_PK_REQUIREMENT = 500 # OG GAME WAS 9999, somewhere around 1000+ is better here
+NUM_FLOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
 GHOST_PK_MIN = 50
@@ -621,6 +621,13 @@ class Door(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)  # Position of the door
 
+class Window(pygame.sprite.Sprite):
+    def __init__(self, x, y, image):
+        super().__init__()
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)  # Position of the window
+
 
 class Equipment_Sprite(pygame.sprite.Sprite):
     def __init__(self, name, cost, unique):
@@ -920,7 +927,6 @@ class Player_On_Map(pygame.sprite.Sprite):
         self.prev_y = y
 
         car_speed = player.vehicle["speed"] // CAR_SPEED_ON_MAP_FACTOR
-
         self.Xspeed = car_speed #Xspeed
         self.Yspeed = car_speed #Yspeed
         self.color_timer = 0
@@ -6573,6 +6579,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
     floor_level_sprites = pygame.sprite.Group()  # Create a sprite group for floor level sprites
 
     doors_in_building = pygame.sprite.Group()
+    windows_in_building = pygame.sprite.Group()
     goo_in_building = pygame.sprite.Group()
 
 
@@ -6613,14 +6620,32 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
 
     floor_level_y = HEIGHT - 110 + ghostbuster1.image.get_height()
-    num_of_floors = NUM_FOORS_IN_ZUUL_BUILDING -1 # always even before -1
+    num_of_floors = NUM_FLOORS_IN_ZUUL_BUILDING -1 # always even before -1
     floor_gap = 208
     num_of_steps = 13
     step_height = floor_gap / num_of_steps
     stair_width = ((step_height * 11) // 7)*1.8
+
+    building_center_x = WIDTH // 2
+    window_image = WINDOW7_IMAGE
+    window_width = window_image.get_width()
+    
+    # Define spacing between windows to distribute them evenly
+    total_spacing = WIDTH - (5 * window_width)  # Remaining space after accounting for window widths
+    gap_between_windows = total_spacing // 6  # Divide the remaining space into 6 gaps (5 windows = 6 gaps)
+
+    # Calculate the X positions for the 5 windows
+    window_x_positions = [
+        gap_between_windows,  # First window
+        gap_between_windows * 2 + window_width,  # Second window
+        gap_between_windows * 3 + 2 * window_width,  # Third window (center)
+        gap_between_windows * 4 + 3 * window_width,  # Fourth window
+        gap_between_windows * 5 + 4 * window_width,  # Fifth window
+    ]
+
+    # FIRST FLOOR (0)##############################################################
     first_floor = Floor_in_building(0,floor_level_y, WIDTH, step_height*2)
     floors_of_building.add(first_floor)
-
     # Create the darkness below the first floor
     darkness_height = HEIGHT // 3  # Adjust this value to control how tall the darkness is
     darkness_y = first_floor.rect.y + first_floor.rect.height  # Position the darkness below the first floor
@@ -6632,11 +6657,18 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
     doorY = floor_level_y - door_image.get_height()
     bottomDoor = Door(doorX,doorY,door_image)
     doors_in_building.add(bottomDoor)
+    # Define the Y position for the windows (middle of the floor level and floor gap)
+    window_y = floor_level_y - (floor_gap // 1.75) 
+    # Create the two window instances
+    # Create and add the windows to the sprite group
+    for x in window_x_positions:
+        window = Window(x, window_y, window_image)
+        windows_in_building.add(window)
+    ###################################################################################
+
 
     floor_level_y -= floor_gap
     level = 1
-
-
 
     while level <= num_of_floors:
 
@@ -6651,6 +6683,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
                 ghost_at_building = Ghost_at_building(inside=True, inside_level=floor_level_y)
                 ghosts_at_building.add(ghost_at_building)
                 count += 1
+
+
+
 
         # ADD THE TOP FLOOR EXIT DOOR
         if level == num_of_floors:
@@ -6677,7 +6712,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH-WIDTH//3,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH-WIDTH//3 - 25 ,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, WIDTH-130, floor_level_y-50)  # Adjust the position as needed
@@ -6707,7 +6742,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
-                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH//6,floor_level_y+step_height)  # Adjust position as needed
+                goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH//6 - 25,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, 50, floor_level_y-50)  # Adjust the position as needed
@@ -6728,11 +6763,27 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
                 goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
                 goo_in_building.add(goo_sprite)
 
+
+
         # Create a sprite for dripping goo in the center
         if level > 2 and (random.randint(0,100) <= 50):
             goo_sprite = Drip_of_goo(WIDTH//2-25,WIDTH//2+25,floor_level_y+step_height)  # Adjust position as needed
             goo_in_building.add(goo_sprite)
 
+        # CREATE WINDOWS
+        if level != num_of_floors: # not the top floor
+            # Define the Y position for the windows (middle of the floor level and floor gap)
+            window_y = floor_level_y - (floor_gap // 1.75) 
+            # Create the two window instances
+            # Create and add the windows to the sprite group
+            for x in window_x_positions:
+                window = Window(x, window_y, window_image)
+                windows_in_building.add(window)
+
+
+
+        
+        # NEXT FLOOR
         floor_level_y -= floor_gap
         level +=1
 
@@ -6783,6 +6834,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             for sign in floor_level_sprites:
                 sign.rect.y -= move_up_offset
 
+            for window in windows_in_building:
+                window.rect.y -= move_up_offset
+
             floor_level_y += move_up_offset
 
         elif ascent_started and selected_ghostbuster.rect.y > 600:
@@ -6813,6 +6867,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
 
             for sign in floor_level_sprites:
                 sign.rect.y -= move_up_offset
+
+            for window in windows_in_building:
+                window.rect.y -= move_up_offset
 
             floor_level_y += move_up_offset
             
@@ -6962,6 +7019,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
         floors_of_building.draw(screen)
         floor_level_sprites.draw(screen)
         doors_in_building.draw(screen)
+        windows_in_building.draw(screen)
         goo_in_building.draw(screen)
         
         ghostbusters_at_building.draw(screen)
