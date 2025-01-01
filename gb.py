@@ -201,7 +201,7 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 500 # OG GAME WAS 9999, somewhere around 1000+ is better here
+ZUUL_END_GAME_PK_REQUIREMENT = 20 # OG GAME WAS 9999, somewhere around 1000+ is better here
 NUM_FLOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
@@ -1418,6 +1418,7 @@ class Floor_in_building(pygame.sprite.Sprite):
 class Drip_of_goo(pygame.sprite.Sprite):
     def __init__(self, minX,maxX,Y, radius=12,falling=False):
         super().__init__()
+        global goo_in_building
 
         self.radius = radius
         # Load and scale the CEILING_GOO_IMAGE
@@ -1454,6 +1455,14 @@ class Drip_of_goo(pygame.sprite.Sprite):
         self.last_drip_time = pygame.time.get_ticks() + random.randint(0,self.drip_interval)
 
         self.falling = falling
+
+        if not self.falling:
+            for other_goo in goo_in_building:
+                if self.rect.colliderect(other_goo.rect):
+                    # Kill this goo instance if it overlaps
+                    self.kill()
+                    break
+
 
 
 
@@ -2515,7 +2524,7 @@ class JumpingGhost(pygame.sprite.Sprite):  # STAY PUFT AT DOORWAY
 
 
 class StayPuft(pygame.sprite.Sprite): # STAY PUFT MARCHING ON MAP, see jumpingghost for doorway version
-    def __init__(self, target_building, speed=1):
+    def __init__(self, target_building, speed=1.25):
         super().__init__()
 
         # Load all images into a list for animation
@@ -2617,7 +2626,7 @@ class StayPuft(pygame.sprite.Sprite): # STAY PUFT MARCHING ON MAP, see jumpinggh
                 )
                 vector = pygame.Vector2(target_center[0] - self.rect.centerx, target_center[1] - self.rect.centery)
 
-                if vector != 0:
+                if vector.length() != 0:
                     # Normalize the vector (convert it to a unit vector)
                     vector.normalize_ip()
 
@@ -2635,16 +2644,16 @@ class StayPuft(pygame.sprite.Sprite): # STAY PUFT MARCHING ON MAP, see jumpinggh
                 self.target_building.rect.y + self.target_building.rect.height // 2
             )
             vector = pygame.Vector2(target_center[0] - self.rect.centerx, target_center[1] - self.rect.centery)
+            if vector.length() != 0:
+                # Normalize the vector (convert it to a unit vector)
+                vector.normalize_ip()
 
-            # Normalize the vector (convert it to a unit vector)
-            vector.normalize_ip()
+                # Add a small random movement
+                vector.x += random.uniform(-self.random_movement, self.random_movement)
+                vector.y += random.uniform(-self.random_movement, self.random_movement)
 
-            # Add a small random movement
-            vector.x += random.uniform(-self.random_movement, self.random_movement)
-            vector.y += random.uniform(-self.random_movement, self.random_movement)
-
-            # Move the ghost towards the center
-            self.rect.move_ip(self.speed * vector.x, self.speed * vector.y)
+                # Move the ghost towards the center
+                self.rect.move_ip(self.speed * vector.x, self.speed * vector.y)
 
             # Check if the distance between centers is within the margin
             margin = self.image.get_width()//2
@@ -2770,7 +2779,12 @@ class MapGhost(pygame.sprite.Sprite):
         dist_to_player = pygame.math.Vector2(self.rect.x + 25, self.rect.y + 25 ).distance_to((player.mapSprite.rect.x + player.mapSprite.size//2 , player.mapSprite.rect.y + player.mapSprite.size//2))
         dist_to_zuul =  pygame.math.Vector2(self.rect.x + 25, self.rect.y + 25 ).distance_to((self.target_building.rect.x + self.target_building.width//2 , self.target_building.rect.y + self.target_building.height//2))
         
-        if player.has("Ghost Bait") and (dist_to_player <= 200 and not dist_to_zuul <= 200):
+        bait_ghost = False
+        if player.has("Ghost Bait") and not (marshmallowed or end_game):
+            bait_ghost = True
+
+
+        if bait_ghost and (dist_to_player <= 200 and not dist_to_zuul <= 200):
                 target_center = (
                     player.mapSprite.rect.x + player.mapSprite.size // 2,
                     player.mapSprite.rect.y + player.mapSprite.size// 2
@@ -6676,7 +6690,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
         # ADD GHOSTS
         if level > 2:
             # Create Ghost sprite
-            num_ghosts = random.choice([0,1,1])
+            num_ghosts = random.choice([0,1,1,1])
             count = 0
 
             while count < num_ghosts:
@@ -6713,7 +6727,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH-WIDTH//3 - 25 ,floor_level_y+step_height)  # Adjust position as needed
-                goo_in_building.add(goo_sprite)
+                if goo_sprite != None : goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, WIDTH-130, floor_level_y-50)  # Adjust the position as needed
             floor_level_sprites.add(floor_level_sprite)
@@ -6733,7 +6747,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(WIDTH-WIDTH//3+WIDTH//6+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
-                goo_in_building.add(goo_sprite)
+                if goo_sprite != None : goo_in_building.add(goo_sprite)
 
         else:
             # STAIR ON THE LEFT
@@ -6743,7 +6757,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH//6 - 25,floor_level_y+step_height)  # Adjust position as needed
-                goo_in_building.add(goo_sprite)
+                if goo_sprite != None : goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, 50, floor_level_y-50)  # Adjust the position as needed
             floor_level_sprites.add(floor_level_sprite)
@@ -6761,14 +6775,14 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
-                goo_in_building.add(goo_sprite)
+                if goo_sprite != None : goo_in_building.add(goo_sprite)
 
 
 
         # Create a sprite for dripping goo in the center
         if level > 2 and (random.randint(0,100) <= 50):
             goo_sprite = Drip_of_goo(WIDTH//2-25,WIDTH//2+25,floor_level_y+step_height)  # Adjust position as needed
-            goo_in_building.add(goo_sprite)
+            if goo_sprite != None : goo_in_building.add(goo_sprite)
 
         # CREATE WINDOWS
         if level != num_of_floors: # not the top floor
