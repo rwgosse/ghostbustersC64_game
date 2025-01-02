@@ -24,6 +24,7 @@ BAR_WIDTH = 80  # Width of each bar
 BAR_HEIGHT = 20
 BAR_SPACING = 10  # Space between bars
 TOP_OFFSET = 100  # Distance from the top of the screen
+MIN_CARD_FROM_PLAYER_DISTANCE = 50
 # ===== 
 
 # INDEX FEE CARD
@@ -201,7 +202,7 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 20 # OG GAME WAS 9999, somewhere around 1000+ is better here
+ZUUL_END_GAME_PK_REQUIREMENT = 1000 # OG GAME WAS 9999, somewhere around 1000+ is better here
 NUM_FLOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
@@ -1383,11 +1384,11 @@ class Player_On_Map(pygame.sprite.Sprite):
         # IF THE PLAYER'S ICON GETS NEAR THE CARD, REMOVE THE CARD
         if fee_card:
             if fee_card.slide_direction == "left":
-                if abs(self.rect.x - (fee_card.current_x + CARD_WIDTH)) < 20:
+                if abs(self.rect.x - (fee_card.current_x + CARD_WIDTH)) < MIN_CARD_FROM_PLAYER_DISTANCE:
                     fee_card.state = "sliding_out"
 
             elif fee_card.slide_direction == "right":
-                if abs(self.rect.x + self.rect.width - fee_card.current_x) < 20:
+                if abs(self.rect.x + self.rect.width - fee_card.current_x) < MIN_CARD_FROM_PLAYER_DISTANCE:
                     fee_card.state = "sliding_out"
 
 
@@ -2745,8 +2746,9 @@ class MapGhost(pygame.sprite.Sprite):
                 player.mapSprite.rect.y + player.mapSprite.rect.height // 2
             )
             vector = pygame.Vector2(player_center[0] - self.rect.centerx, player_center[1] - self.rect.centery)
-            vector.normalize_ip()
-            self.rect.move_ip(self.speed * vector.x, self.speed * vector.y)
+            if vector.length() != 0:
+                vector.normalize_ip()
+                self.rect.move_ip(self.speed * vector.x, self.speed * vector.y)
 
             # Shrink the ghost
             scale_factor = 0.50  # You can adjust the scale factor as needed
@@ -7317,6 +7319,7 @@ def bust_ghost_at_building(building=None):
     global left_most_buster
     global traps_at_building
     global ghosts_captured
+    global goo_in_building
             
 
     building = building
@@ -7332,7 +7335,9 @@ def bust_ghost_at_building(building=None):
     ghosts_at_building = pygame.sprite.Group()
     traps_at_building = pygame.sprite.Group()
     doors_at_building = pygame.sprite.Group()
-    ghosts_captured = pygame.sprite.Group() 
+    ghosts_captured = pygame.sprite.Group()
+    windows_in_building = pygame.sprite.Group()
+    goo_in_building = pygame.sprite.Group()
 
     # Create Ghostbuster sprites
 
@@ -7468,19 +7473,41 @@ def bust_ghost_at_building(building=None):
         num_windows = random.randint(3,7)
         num_rows = random.randint(1,2)
 
-        has_left_side_window = bool(random.getrandbits(1))
-        has_right_side_window = bool(random.getrandbits(1))
-
-        side_window_image = None
-        if has_left_side_window or has_right_side_window: 
-            side_window_image = random.choice(WINDOW_IMAGE_LIST)  
-
-
         # Calculate the actual spacing between windows
         window_spacing = (available_space - num_windows * window_width) // (num_windows - 1)
-
         # Calculate the starting position for the first window
         start_x = 150 + 150 + (available_space - num_windows * window_width - (num_windows - 1) * window_spacing) // 2
+        window_y = 20 + window_height
+
+        # Iterate over each window position and create 
+        for row in range(num_rows):
+            for i in range(num_windows):
+                window_x = start_x + (window_width + window_spacing) * i
+                window = Window(window_x,window_y,window_image)
+                windows_in_building.add(window)
+            window_y += window_height*2
+
+        has_left_side_window = bool(random.getrandbits(1))
+        has_right_side_window = bool(random.getrandbits(1))
+        side_window_image = None
+        if has_left_side_window or has_right_side_window: 
+            side_window_image = random.choice(WINDOW_IMAGE_LIST) 
+            side_window_y = window_y + side_window_image.get_height() * 0.25
+
+            if has_right_side_window:
+                right_side_window_x = doorX + door.image.get_width() + side_window_image.get_width() * 2
+                window = Window(right_side_window_x,side_window_y,side_window_image)
+                windows_in_building.add(window)
+                
+            if has_left_side_window:
+                left_side_window_x = doorX - side_window_image.get_width() * 3
+                window = Window(left_side_window_x,side_window_y,side_window_image)
+                windows_in_building.add(window)
+
+
+
+        
+
 
     ghost_escaping = False
     streams_crossed_death =  False
@@ -7488,52 +7515,7 @@ def bust_ghost_at_building(building=None):
     success =  False
     while running:
 
-        # draw the background 
-        # screen.fill(BLACK)
-        # screen.fill(SKY_BLUE, (0,0, WIDTH, HEIGHT//5))
-        screen.fill(SKY_BLUE) # BACKGROUND
-        screen.fill(STREET_GREY, (0,(HEIGHT//3)*2 + 5, WIDTH, HEIGHT//3)) # SIDEWALK & BEHIND BUILDINGS
-        screen.fill(GREY, (0,70, 125, (HEIGHT//3)*2 - 15 - 20)) # LEFT NEIGHBOR BUILDING
-        screen.fill(GREY, (WIDTH-125,70, 125, (HEIGHT//3)*2 - 15 - 20)) # RIGHT NEIGHBOR BUILDING
-        screen.fill(building_color, (buildingX,buildingY, buildingWidth, buildingHeight)) # BUILDING ITSELF
-
-        leftGapCoords = [(125,70), (buildingX,70+15), (buildingX,buildingY+buildingHeight-15), (125,buildingY+buildingHeight)]
-        pygame.draw.polygon(screen, BLACK, leftGapCoords ) # LEFT SHADOW GAP
-
-        rightGapCoords = [(buildingX+buildingWidth,70+15), (WIDTH-125,70), (WIDTH-125,buildingY+buildingHeight), (buildingX+buildingWidth,buildingY+buildingHeight-15)]
-        pygame.draw.polygon(screen, BLACK, rightGapCoords ) # RIGHT SHADOW GAP
-
-        if building_image is not None:
-            screen.blit(building_image, (buildingX, buildingY))
-
-        if not building.name == "Park":
-
-            window_y = 20 + window_height
-            # Iterate over each window position and blit the images
-            for row in range(num_rows):
-                for i in range(num_windows):
-                    window_x = start_x + (window_width + window_spacing) * i
-                    screen.blit(window_image, (window_x, window_y))
-                window_y += window_height*2
-
-            if has_right_side_window:
-                screen.blit(side_window_image, (doorX + door.image.get_width() + side_window_image.get_width() * 2, window_y + side_window_image.get_height() * 0.25))
-
-            if has_left_side_window:
-                screen.blit(side_window_image, (doorX - side_window_image.get_width() * 3, window_y + side_window_image.get_height() * 0.25))
-
-
-        screen.fill(DARK_GREY, (0, HEIGHT - 175, WIDTH, 10))
-
-        # ---
-        # draw the ectomobile:
-        screen.blit(vehicle_side_image, (WIDTH - vehicle_side_image.get_width(), HEIGHT - 200))
-
-
-
         elapsed_time = pygame.time.get_ticks() - start_time
-
-
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -7761,13 +7743,10 @@ def bust_ghost_at_building(building=None):
                 vector = pygame.Vector2(buster_x - this_ghost.rect.centerx, buster_y - this_ghost.rect.centery)
                 vector.normalize_ip()
                 this_ghost.rect.move_ip(15 * vector.x, 15 * vector.y)
-
                 
                 distX = abs(this_ghost.rect.centerx - buster_x)
                 distY = abs(this_ghost.rect.centery - buster_y)
-
                 dist = math.hypot(distX,distY)
-
 
                 if pygame.sprite.spritecollide(this_ghost, ghostbusters_at_building, False):
                     if dist < 20:
@@ -7799,7 +7778,33 @@ def bust_ghost_at_building(building=None):
             
 
         
-        # Draw everything
+        # Draw everything #############################################################################
+
+        # draw the background 
+        # screen.fill(BLACK)
+        # screen.fill(SKY_BLUE, (0,0, WIDTH, HEIGHT//5))
+        screen.fill(SKY_BLUE) # BACKGROUND
+        screen.fill(STREET_GREY, (0,(HEIGHT//3)*2 + 5, WIDTH, HEIGHT//3)) # SIDEWALK & BEHIND BUILDINGS
+        screen.fill(GREY, (0,70, 125, (HEIGHT//3)*2 - 15 - 20)) # LEFT NEIGHBOR BUILDING
+        screen.fill(GREY, (WIDTH-125,70, 125, (HEIGHT//3)*2 - 15 - 20)) # RIGHT NEIGHBOR BUILDING
+        screen.fill(building_color, (buildingX,buildingY, buildingWidth, buildingHeight)) # BUILDING ITSELF
+
+        leftGapCoords = [(125,70), (buildingX,70+15), (buildingX,buildingY+buildingHeight-15), (125,buildingY+buildingHeight)]
+        pygame.draw.polygon(screen, BLACK, leftGapCoords ) # LEFT SHADOW GAP
+
+        rightGapCoords = [(buildingX+buildingWidth,70+15), (WIDTH-125,70), (WIDTH-125,buildingY+buildingHeight), (buildingX+buildingWidth,buildingY+buildingHeight-15)]
+        pygame.draw.polygon(screen, BLACK, rightGapCoords ) # RIGHT SHADOW GAP
+
+        if building_image is not None:
+            screen.blit(building_image, (buildingX, buildingY))
+
+        windows_in_building.draw(screen)
+
+        screen.fill(DARK_GREY, (0, HEIGHT - 175, WIDTH, 10))
+
+
+        # draw the ectomobile:
+        screen.blit(vehicle_side_image, (WIDTH - vehicle_side_image.get_width(), HEIGHT - 200))
 
         doors_at_building.draw(screen)
         if sign_image is not None:
@@ -7835,7 +7840,7 @@ def bust_ghost_at_building(building=None):
 
             
 
-        ### GHOSTS ###
+        ### DRAW GHOSTS ###
         ghosts_at_building.draw(screen)
         for ghost in ghosts_at_building:
             ghost.draw_damage()
@@ -7857,9 +7862,6 @@ def bust_ghost_at_building(building=None):
             PROTON_PACK_CHANNEL.stop()
 
         # ##############################################################
-
-
-
 
         pygame.display.flip()
         clock.tick(60)
@@ -7892,7 +7894,6 @@ def enterOrExit_building(building=None, enter=True, exit=False):
     # Create sprite groups
     ghostbusters_at_building = pygame.sprite.Group()
     ghosts_at_building = pygame.sprite.Group()
-
     doors_at_building = pygame.sprite.Group()
 
     clock = pygame.time.Clock()
@@ -8023,43 +8024,6 @@ def enterOrExit_building(building=None, enter=True, exit=False):
 
     while running:
 
-        # draw the background 
-        # screen.fill(BLACK)
-        screen.fill(SKY_BLUE)
-        # screen.fill(SKY_BLUE, (0,0, WIDTH, HEIGHT//5))
-        screen.fill(STREET_GREY, (0,(HEIGHT//3)*2 + 5, WIDTH, HEIGHT//3)) # SIDEWALK & BEHIND BUILDINGS
-        screen.fill(GREY, (0,45, 125+20, (HEIGHT//3)*2 - 25))
-        screen.fill(GREY, (WIDTH-125-20,45, 125+20, (HEIGHT//3)*2 - 25))
-        
-        
-
-        screen.fill(building_color, (buildingX,buildingY, buildingWidth, buildingHeight))
-
-        if building_image is not None:
-            screen.blit(building_image, (buildingX, buildingY))
-
-        leftGapCoords = [(125+20,45), (buildingX,45+15), (buildingX,buildingY+buildingHeight-15), (125+20,buildingY+buildingHeight)]
-        pygame.draw.polygon(screen, BLACK, leftGapCoords ) # LEFT SHADOW GAP
-
-        rightGapCoords = [(buildingX+buildingWidth,45+15), (WIDTH-125-20,45), (WIDTH-125-20,buildingY+buildingHeight-15), (buildingX+buildingWidth,buildingY+buildingHeight)]
-        pygame.draw.polygon(screen, BLACK, rightGapCoords ) # RIGHT SHADOW GAP
-
-        window_y = 20 + window_height
-        # Iterate over each window position and blit the images
-        for row in range(num_rows):
-            for i in range(num_windows):
-                window_x = start_x + (window_width + window_spacing) * i
-                screen.blit(window_image, (window_x, window_y))
-            window_y += window_height*2
-
-
-        screen.fill(DARK_GREY, (0, HEIGHT - 175, WIDTH, 10))
-
-        # ---
-        # draw the ectomobile:
-        screen.blit(vehicle_side_image, (WIDTH - vehicle_side_image.get_width(), HEIGHT - 200))
-
-
 
         elapsed_time = pygame.time.get_ticks() - start_time
 
@@ -8109,13 +8073,6 @@ def enterOrExit_building(building=None, enter=True, exit=False):
                 else:
                     ghostbusters_at_building.remove(buster)    
                     
-                
-
-
-                
-
-                            
-
 
         # Update sprites
         ghostbusters_at_building.update(keys)
@@ -8125,7 +8082,45 @@ def enterOrExit_building(building=None, enter=True, exit=False):
             return
 
         
-        # Draw everything
+        # Draw everything #########################################################
+
+        # draw the background 
+        # screen.fill(BLACK)
+        screen.fill(SKY_BLUE)
+        # screen.fill(SKY_BLUE, (0,0, WIDTH, HEIGHT//5))
+        screen.fill(STREET_GREY, (0,(HEIGHT//3)*2 + 5, WIDTH, HEIGHT//3)) # SIDEWALK & BEHIND BUILDINGS
+        screen.fill(GREY, (0,45, 125+20, (HEIGHT//3)*2 - 25))
+        screen.fill(GREY, (WIDTH-125-20,45, 125+20, (HEIGHT//3)*2 - 25))
+        
+        
+
+        screen.fill(building_color, (buildingX,buildingY, buildingWidth, buildingHeight))
+
+        if building_image is not None:
+            screen.blit(building_image, (buildingX, buildingY))
+
+        leftGapCoords = [(125+20,45), (buildingX,45+15), (buildingX,buildingY+buildingHeight-15), (125+20,buildingY+buildingHeight)]
+        pygame.draw.polygon(screen, BLACK, leftGapCoords ) # LEFT SHADOW GAP
+
+        rightGapCoords = [(buildingX+buildingWidth,45+15), (WIDTH-125-20,45), (WIDTH-125-20,buildingY+buildingHeight-15), (buildingX+buildingWidth,buildingY+buildingHeight)]
+        pygame.draw.polygon(screen, BLACK, rightGapCoords ) # RIGHT SHADOW GAP
+
+        window_y = 20 + window_height
+        # Iterate over each window position and blit the images
+        for row in range(num_rows):
+            for i in range(num_windows):
+                window_x = start_x + (window_width + window_spacing) * i
+                screen.blit(window_image, (window_x, window_y))
+            window_y += window_height*2
+
+
+        screen.fill(DARK_GREY, (0, HEIGHT - 175, WIDTH, 10))
+
+        # ---
+        # draw the ectomobile:
+        screen.blit(vehicle_side_image, (WIDTH - vehicle_side_image.get_width(), HEIGHT - 200))
+
+
         doors_at_building.draw(screen)
         if sign_image is not None:
             # screen.fill(WHITE,(signX-1, signY-1,sign_image.get_width()+2,sign_image.get_height()+2))
@@ -8138,6 +8133,7 @@ def enterOrExit_building(building=None, enter=True, exit=False):
         for buster in ghostbusters_at_building.sprites():
             buster.display_name(screen)
 
+        ##############################################################
         
 
         pygame.display.flip()
