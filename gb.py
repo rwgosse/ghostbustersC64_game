@@ -1417,7 +1417,7 @@ class Floor_in_building(pygame.sprite.Sprite):
 
 
 class Drip_of_goo(pygame.sprite.Sprite):
-    def __init__(self, minX,maxX,Y, radius=12,falling=False):
+    def __init__(self, minX,maxX,Y, radius=12, falling=False, outside=False):
         super().__init__()
         global goo_in_building
 
@@ -1450,12 +1450,22 @@ class Drip_of_goo(pygame.sprite.Sprite):
         position = [random.randint(minX,maxX),Y]
         self.rect.midtop = position  # Position the goo sprite at the bottom-left corner of the floor
 
+        
+            
+
         # Variables for dripping behavior
         numOfSeconds = random.randint(1,5)
         self.drip_interval = 1000*numOfSeconds  # Drip interval in milliseconds (adjust as needed)
         self.last_drip_time = pygame.time.get_ticks() + random.randint(0,self.drip_interval)
 
         self.falling = falling
+        self.outside = outside
+
+        if outside and not self.falling:
+            self.rect.x = minX
+        
+
+        self.drip_fall_max_y = 20 + (HEIGHT//3)*2 + 15
 
         if not self.falling:
             for other_goo in goo_in_building:
@@ -1469,13 +1479,24 @@ class Drip_of_goo(pygame.sprite.Sprite):
 
     def update(self):
         global floors_of_building
+        global ghostbusters_at_building
         # Add any dripping animation or movement logic here
 
         if self.falling:
             self.rect.y += 4
 
+
+
             if pygame.sprite.spritecollide(self, floors_of_building, False):
                 self.kill()
+
+            if self.outside:
+                if self.rect.y >= self.drip_fall_max_y:
+                   self.kill() 
+
+            slimedBody = pygame.sprite.spritecollide(self, ghostbusters_at_building,False)
+            for body in slimedBody:
+                body.getSlimed()
 
         else:
 
@@ -1487,9 +1508,8 @@ class Drip_of_goo(pygame.sprite.Sprite):
 
     def drip(self):
         global goo_in_building
-        global selected_ghostbuster
         # Create a new drop of goo below the current position
-        new_drop = Drip_of_goo(self.rect.centerx,self.rect.centerx, self.rect.bottom + self.radius,radius=8,falling=True) # Position the new drop below the current one
+        new_drop = Drip_of_goo(self.rect.centerx,self.rect.centerx, self.rect.bottom + self.radius,radius=8,falling=True, outside=self.outside) # Position the new drop below the current one
         goo_in_building.add(new_drop)  # Add the new drop to the sprite group
 
         if 0 < self.rect.y < HEIGHT : # IS THE BUSTER NEAR ENOUGH TO HEAR
@@ -3644,6 +3664,8 @@ class Ghostbuster(pygame.sprite.Sprite):
                         # Limit movement within the lower third of the screen
                         self.rect.y = max((HEIGHT-(HEIGHT//3)), min(HEIGHT - 110, self.rect.y))
 
+
+
         yB = self.rect.y
 
         if yB > yA:
@@ -3675,8 +3697,8 @@ class Ghostbuster(pygame.sprite.Sprite):
                                     if self.proton_death_timer > CROSS_STEAMS_DEATH_TIMER:
                                         MUSIC.pause()
                                         PKE_CHANNEL.stop()
-                                        self.getSlimed()
-                                        other_buster.getSlimed(voice=VOICE_LAUGH)
+                                        self.getSlimed(voice=VOICE_YELL)
+                                        other_buster.getSlimed(voice=VOICE_YELL)
                                         # PROTON_PACK_CHANNEL.stop()
                                         
                     else:
@@ -7320,6 +7342,7 @@ def bust_ghost_at_building(building=None):
     global traps_at_building
     global ghosts_captured
     global goo_in_building
+    global floors_of_building
             
 
     building = building
@@ -7337,6 +7360,7 @@ def bust_ghost_at_building(building=None):
     doors_at_building = pygame.sprite.Group()
     ghosts_captured = pygame.sprite.Group()
     windows_in_building = pygame.sprite.Group()
+    floors_of_building = pygame.sprite.Group()
     goo_in_building = pygame.sprite.Group()
 
     # Create Ghostbuster sprites
@@ -7486,6 +7510,15 @@ def bust_ghost_at_building(building=None):
                 window = Window(window_x,window_y,window_image)
                 windows_in_building.add(window)
             window_y += window_height*2
+
+
+        # chance of goo dropping from window:
+        if random.randint(0,100) > 0:
+            random_window = random.choice(windows_in_building.sprites())
+            window_goo = Drip_of_goo(random_window.rect.x, random_window.rect.x, random_window.rect.y+window_height, radius=window_width//4, outside=True)
+            goo_in_building.add(window_goo)
+
+
 
         has_left_side_window = bool(random.getrandbits(1))
         has_right_side_window = bool(random.getrandbits(1))
@@ -7682,6 +7715,7 @@ def bust_ghost_at_building(building=None):
         traps_at_building.update()
         ghostbusters_at_building.update(keys)
         ghosts_at_building.update()
+        goo_in_building.update()
 
         # if len(ghostbusters_at_building.sprites()) <= 0:
         #     if not ghost_escaping:
@@ -7701,7 +7735,7 @@ def bust_ghost_at_building(building=None):
                 MUSIC.pause()
                 VOICE_CHANNEL.play(VOICE_YELL)
                 streams_crossed_death = True
-                print("streams_crossed_death!!!!")
+                # print("streams_crossed_death!!!!")
                 # return num_ghosts_busted, ghosts_captured
 
 
@@ -7812,6 +7846,8 @@ def bust_ghost_at_building(building=None):
             pygame.draw.rect(screen, BLACK, pygame.Rect(signX-2, signY-2,sign_image.get_width()+4,sign_image.get_height()+4),  0, 3)
             pygame.draw.rect(screen, OFF_WHITE, pygame.Rect(signX-1, signY-1,sign_image.get_width()+2,sign_image.get_height()+2),  0, 3)
             screen.blit(sign_image, (signX, signY))
+
+        goo_in_building.draw(screen)
 
         ### TRAPS AND TRAP EFFECTS ### 
         for trap in traps_at_building.sprites():
