@@ -100,6 +100,9 @@ hair_choices = [HAIR_Blond, HAIR_DarkBlond, HAIR_MediumBrown, HAIR_DarkBrown, HA
 hair_weight = (6,6,6,6,6,6,50,6,6)
 
 
+
+
+
 GHOST_CLASSES = ["Class I", "Class II", "Class III", "Class IV", "Class V", "Class VI"] # Class VII
 GHOST_TRAITS = ["Focused", "Free-Floating", "Full-Torso", "Repeating", "Vapor", "Anchored", 
     "Animating", "Caustic", "Composite", "Corporeal", "Ethereal", "Inhabiting", "Kinetic", 
@@ -219,7 +222,7 @@ INSIDE_GHOST_SPEED_MAX = 2
 
 PROTON_BEAM_CIRCLE_LINE_WIDTH = 3
 
-PLC_MAX_STORAGE = 12
+PLC_MAX_STORAGE = 10
 MINIMUM_PROTON_CHARGE_FOR_MISSION = 10
 MAX_NUM_OF_SPECIAL_FEES = 2
 
@@ -228,6 +231,12 @@ CROSS_STEAMS_DEATH_TIMER = 200
 GHOST_ESCAPE_TIME = 30000 # 1 minute = 60,000 milliseconds
 
 ZUUL_CLIMB_WALL_WIDTH = 40
+
+WINDOW_GOO_PERCENT_CHANCE = 25
+LEVEL_MIN_BEFORE_GOO = 1
+
+SEMI_TRANSPARENT_ALPHA_LOW = 64
+SEMI_TRANSPARENT_ALPHA_MED = 128
 
 # AUDIO CONSTANTS --------------------------------------------------------------------------
 pygame.mixer.init()
@@ -558,6 +567,32 @@ def spritePixelColorChange(sprite, old=ABS_GREEN, new=ORIGINAL_UNIFORM_YELLOW):
 
     return modified_sprite
 
+def make_image_transparent(image, alpha):
+    """
+    Adjusts the transparency of a Pygame surface (sprite image).
+
+    Args:
+        image (pygame.Surface): The original image surface.
+        alpha (int): The transparency level (0 = fully transparent, 255 = fully opaque).
+
+    Returns:
+        pygame.Surface: A new surface with adjusted transparency.
+    """
+    # Ensure the image supports alpha transparency
+    image = image.convert_alpha()
+
+    # Create a new surface with the same size and SRCALPHA flag
+    transparent_image = pygame.Surface(image.get_size(), pygame.SRCALPHA)
+
+    # Blit the original image onto the new surface
+    transparent_image.blit(image, (0, 0))
+
+    # Apply the transparency
+    transparent_image.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+
+    return transparent_image
+
+
 
 
 
@@ -631,11 +666,12 @@ class Window(pygame.sprite.Sprite):
 
 
 class Equipment_Sprite(pygame.sprite.Sprite):
-    def __init__(self, name, cost, unique):
+    def __init__(self, name, cost, unique, description):
         super(Equipment_Sprite, self).__init__()
         self.name = name 
         self.cost = cost 
         self.unique = unique
+        self.description = description
 
         if self.name in equipment_images:
             self.image = equipment_images[self.name]
@@ -1467,12 +1503,15 @@ class Drip_of_goo(pygame.sprite.Sprite):
 
         self.drip_fall_max_y = 20 + (HEIGHT//3)*2 + 15
 
+        self.alive = True
         if not self.falling:
             for other_goo in goo_in_building:
                 if self.rect.colliderect(other_goo.rect):
                     # Kill this goo instance if it overlaps
+                    self.alive = False
                     self.kill()
                     break
+
 
 
 
@@ -1511,7 +1550,6 @@ class Drip_of_goo(pygame.sprite.Sprite):
         # Create a new drop of goo below the current position
         new_drop = Drip_of_goo(self.rect.centerx,self.rect.centerx, self.rect.bottom + self.radius,radius=8,falling=True, outside=self.outside) # Position the new drop below the current one
         goo_in_building.add(new_drop)  # Add the new drop to the sprite group
-
         if 0 < self.rect.y < HEIGHT : # IS THE BUSTER NEAR ENOUGH TO HEAR
             WATER_DROP.play()
 
@@ -2020,6 +2058,10 @@ class Street_Ghost(pygame.sprite.Sprite):
         global textShown
         self.size = 85
         self.image = MAP_GHOST_IMAGE
+
+        if not player.has('Image Intensifier'):
+            self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
+
         original_width, original_height = self.image.get_size()
         aspect_ratio = original_width / original_height
         new_width = int(self.size * aspect_ratio)
@@ -2041,8 +2083,12 @@ class Street_Ghost(pygame.sprite.Sprite):
 
         if self.direction_x >= 0:
             self.image = self.orig_image
+            if not player.has('Image Intensifier'):
+                self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
         else:
             self.image = pygame.transform.flip(self.orig_image, True, False)
+            if not player.has('Image Intensifier'):
+                self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
 
 
         # Randomly change the left/right movement direction
@@ -2160,6 +2206,8 @@ class Ghost_at_building(pygame.sprite.Sprite):
         
 
         self.image = random.choice(GHOST_IMAGE_LIST)
+
+        
         
         # self.image = GHOST13_IMAGE # OVERRIDE IMAGE FOR TESTS
 
@@ -2170,6 +2218,10 @@ class Ghost_at_building(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (new_width, self.size))
         self.orig_image = self.image
 
+        if not player.has('Image Intensifier'):
+            self.image = make_image_transparent(self.orig_image, SEMI_TRANSPARENT_ALPHA_MED)
+
+        
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(0 + 150, WIDTH - self.image.get_width() - 150)
         self.rect.y = random.randint(0, (HEIGHT-(HEIGHT*2/3)) - self.rect.height)
@@ -2209,6 +2261,13 @@ class Ghost_at_building(pygame.sprite.Sprite):
         yA = self.rect.y
 
         self.taking_damage = False
+        self.image = self.orig_image
+
+        if self.direction_x >= 0:
+            self.image = self.orig_image
+
+        else:
+            self.image = pygame.transform.flip(self.orig_image, True, False)
 
         if self.pk_health >= (self.full_pk_health - (self.full_pk_health//4)):
             self.speed = self.full_speed
@@ -2253,10 +2312,13 @@ class Ghost_at_building(pygame.sprite.Sprite):
                 if random.randint(0,100) <= 1: 
                     self.direction_x = random.choice([-1,1])
                 self.rect.x += random.randint(self.speed-1,self.speed) * self.direction_x
-                if self.direction_x >= 0:
-                    self.image = self.orig_image
-                else:
-                    self.image = pygame.transform.flip(self.orig_image, True, False)
+
+                # if self.direction_x >= 0:
+                #     self.image = self.orig_image
+
+                # else:
+                #     self.image = pygame.transform.flip(self.orig_image, True, False)
+
 
                 
 
@@ -2359,6 +2421,15 @@ class Ghost_at_building(pygame.sprite.Sprite):
 
 
             elif self.trapped:
+
+
+
+                # if self.direction_x >= 0:
+                #     self.image = self.orig_image # REMOVE TRANSPARENCY
+                # else:
+                #     self.image = pygame.transform.flip(self.orig_image, True, False) # REMOVE TRANSPARENCY
+
+
                 self.take_damage(damage=0)
                 for buster in ghostbusters_at_building:
                     if self == buster.ghost_target:
@@ -2401,6 +2472,20 @@ class Ghost_at_building(pygame.sprite.Sprite):
                     self.pk_health += 0.5
                     if self.pk_health > self.full_pk_health: 
                         self.pk_health = self.full_pk_health
+
+
+            
+
+            
+
+        # if self.taking_damage == True:
+        #     print("trapped or taking damage!!!")
+        # else:
+        #     print("not trapped and not taking damage")
+        #     if not player.has('Image Intensifier'):
+        #         self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_MED)
+
+
 
 
     def display_pk_health(self, screen):
@@ -2718,6 +2803,11 @@ class MapGhost(pygame.sprite.Sprite):
 
         self.image = pygame.transform.scale(MAP_GHOST_IMAGE, (50, 50))
         self.orig_image = self.image
+
+        if not player.has('Image Intensifier'):
+            self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
+
+
         self.rect = self.image.get_rect(topleft=(x, y))
 
 
@@ -2736,9 +2826,13 @@ class MapGhost(pygame.sprite.Sprite):
         if self.rect.x < self.prev_x:
             if self.prev_x - self.rect.x > self.random_movement:
                 self.image = pygame.transform.flip(self.orig_image, True, False)
+                if not player.has('Image Intensifier'):
+                    self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
         else:
             if self.rect.x  - self.prev_x > self.random_movement:
                 self.image = self.orig_image
+                if not player.has('Image Intensifier'):
+                    self.image = make_image_transparent(self.image, SEMI_TRANSPARENT_ALPHA_LOW)
 
 
         self.prev_x = self.rect.x
@@ -2774,7 +2868,7 @@ class MapGhost(pygame.sprite.Sprite):
             scale_factor = 0.50  # You can adjust the scale factor as needed
             new_width = int(self.image.get_width() * scale_factor)
             new_height = int(self.image.get_height() * scale_factor)
-            self.image = pygame.transform.scale(self.orig_image, (new_width, new_height))
+            self.image = pygame.transform.scale(self.image, (new_width, new_height))
             self.orig_image = self.image
 
             
@@ -5170,44 +5264,44 @@ def equipment_shopping_loop(mode):
     if mode == "monitor": 
         menu_header_text = "Monitoring Equipment:"
         equipment_choices = {
-            1: {"name": "PK Energy Detector", "cost": 400, 'unique': True},
-            2: {"name": "Image Intensifier", "cost": 800, 'unique': True},
-            3: {"name": "Marshmallow Sensor", "cost": 800, 'unique': True},
-            4: {"name": "Infrared Camera", "cost": 1200, 'unique': True},
-            5: {"name": "Giga Meter", "cost": 1250, 'unique': True},
-            6: {"name": "Barometric Analyzer", "cost": 1400, 'unique': True},
-            7: {"name": "Cargo Expansion", "cost": 10000, 'unique': True}
+            1: {"name": "PK Energy Detector", "cost": 400, 'unique': True, 'description': "Displays PK Energy Level."},
+            2: {"name": "Image Intensifier", "cost": 800, 'unique': True, 'description': "Makes ghosts more visable."},
+            3: {"name": "Marshmallow Sensor", "cost": 800, 'unique': True, 'description': "Warns you about imminent attacks from the Marshmallow Man."},
+            4: {"name": "Infrared Camera", "cost": 1200, 'unique': True, 'description': "not yet"},
+            5: {"name": "Giga Meter", "cost": 1250, 'unique': True, 'description': "not yet"},
+            6: {"name": "Barometric Analyzer", "cost": 1400, 'unique': True, 'description': "not yet"},
+            7: {"name": "Cargo Expansion", "cost": 10000, 'unique': True, 'description': "Expands vehicle capacity."}
         }
 
     elif mode == "capture": 
         menu_header_text = "Ghost Capture Equipment:"
         equipment_choices = {
-            1: {"name": "Ghost Bait", "cost": 400, 'unique': True},
-            2: {"name": "Ghost Trap", "cost": 600, 'unique': False},
-            3: {"name": "Ghost Vacuum", "cost": 500, 'unique': True},
-            4: {"name": "Remote Control Trap Vehicle", "cost": 2500, 'unique': True},
-            5: {"name": "Extendable Gunner Seat", "cost": 2500, 'unique': True},
-            6: {"name": "Mobile Proton Charger", "cost": 5000, 'unique': True},
-            7: {"name": "Portable Lazer Confinement", "cost": 15000, 'unique': True}
+            1: {"name": "Ghost Bait", "cost": 400, 'unique': True, 'description': "Attracts wandering ghosts."},
+            2: {"name": "Ghost Trap", "cost": 600, 'unique': False, 'description': "Used to catch the Ghosts. At least one required."},
+            3: {"name": "Ghost Vacuum", "cost": 500, 'unique': True, 'description': "Catches wandering ghosts that you meet on the streets of the city."},
+            4: {"name": "Remote Control Trap Vehicle", "cost": 2500, 'unique': True, 'description': "not yet"},
+            5: {"name": "Extendable Gunner Seat", "cost": 2500, 'unique': True, 'description': "not yet"},
+            6: {"name": "Mobile Proton Charger", "cost": 5000, 'unique': True, 'description': "Recharges Proton Packs."},
+            7: {"name": "Portable Lazer Confinement", "cost": 15000, 'unique': True, 'description': "Acts as having 10 additional traps. You still need one regular trap."}
         
         }
 
     elif mode == "defense": 
         menu_header_text = "Defense Equipment:"
         equipment_choices = {
-            1: {"name": "Muon Scrubber", "cost": 1200, 'unique': True},
-            2: {"name": "Aerosol Slime Cleaner", "cost": 3000, 'unique': True},
-            3: {"name": "Portable Shield Generator", "cost": 4000, 'unique': True},
-            4: {"name": "EMP Emitter", "cost": 5000, 'unique': True},
-            5: {"name": "Ecto-Repellent Field Generator", "cost": 9000, 'unique': True},
-            6: {"name": "Sonic Disruptor", "cost": 12000, 'unique': True},
-            7: {"name": "Holographic Decoy", "cost": 15000, 'unique': True},
-            8: {"name": "Ecto-Fusion Fuel Generator", "cost": 25000, 'unique': True}
+            1: {"name": "Muon Scrubber", "cost": 1200, 'unique': True, 'description': "not yet"},
+            2: {"name": "Aerosol Slime Cleaner", "cost": 3000, 'unique': True, 'description': "Revives a slimed Ghostbuster."},
+            3: {"name": "Portable Shield Generator", "cost": 4000, 'unique': True, 'description': "not yet"},
+            4: {"name": "EMP Emitter", "cost": 5000, 'unique': True, 'description': "not yet"},
+            5: {"name": "Ecto-Repellent Field Generator", "cost": 9000, 'unique': True, 'description': "not yet"},
+            6: {"name": "Sonic Disruptor", "cost": 12000, 'unique': True, 'description': "not yet"},
+            7: {"name": "Holographic Decoy", "cost": 15000, 'unique': True, 'description': "not yet"},
+            8: {"name": "Ecto-Fusion Fuel Generator", "cost": 25000, 'unique': True, 'description': "Generates vehicle fuel from captured ghosts."}
         
         }
 
     for number, equipment in equipment_choices.items():
-        item = Equipment_Sprite(equipment['name'],equipment['cost'],equipment['unique'])
+        item = Equipment_Sprite(equipment['name'],equipment['cost'],equipment['unique'], equipment['description'])
         equipment_sprites.add(item)
 
     # Display the equipment menu
@@ -5280,6 +5374,7 @@ def update_available_equip_sprites():
 
     # Display equipment choices with cost
     number = 0
+    description_text = None  # To store the description of the highlighted item
     for item in equipment_sprites.sprites():
         number += 1
         # display_two_color_typewriter(f"{number}.   {equipment['name']}", f"   - ${equipment['cost']}", 75, linePosition)
@@ -5344,10 +5439,20 @@ def update_available_equip_sprites():
         if (number-1) == selected_index:
             pygame.draw.rect(screen, WHITE, (40, boxstartY-(FONT36.get_height()*0.25), WIDTH - 650, linePosition-boxstartY),2 ) # Highlight the selected hire
 
+            # Set description text for the highlighted item
+            description_text = item.description  # Assuming `item.description` contains the item's description
+
+
+
             if not forklift.sprites()[0].loading:
                 forklift.sprites()[0].goto(40 + WIDTH - 850, boxstartY-(FONT36.get_height()*0.25))
 
-
+        # Display the description in the lower-right corner of the screen
+        if description_text:
+            description_rendered = FONT24.render(description_text, True, WHITE)
+            description_x = WIDTH - description_rendered.get_width() - 40  # Padding from the right edge
+            description_y = HEIGHT - description_rendered.get_height()*3 - 40  # Padding from the bottom edge
+            screen.blit(description_rendered, (description_x, description_y))
 
 
 # THIS DOESN"T SEEM TO BE USED!!!!! MAYBE FOR BASE IMPROVMENTS
@@ -6751,7 +6856,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH-WIDTH//3 - 25 ,floor_level_y+step_height)  # Adjust position as needed
-                if goo_sprite != None : goo_in_building.add(goo_sprite)
+                # Only add the new goo if it hasn't been killed
+                if goo_sprite.alive:
+                    goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, WIDTH-130, floor_level_y-50)  # Adjust the position as needed
             floor_level_sprites.add(floor_level_sprite)
@@ -6771,7 +6878,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(WIDTH-WIDTH//3+WIDTH//6+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
-                if goo_sprite != None : goo_in_building.add(goo_sprite)
+                # Only add the new goo if it hasn't been killed
+                if goo_sprite.alive:
+                    goo_in_building.add(goo_sprite)
 
         else:
             # STAIR ON THE LEFT
@@ -6781,7 +6890,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(ZUUL_CLIMB_WALL_WIDTH,WIDTH//6 - 25,floor_level_y+step_height)  # Adjust position as needed
-                if goo_sprite != None : goo_in_building.add(goo_sprite)
+                # Only add the new goo if it hasn't been killed
+                if goo_sprite.alive:
+                    goo_in_building.add(goo_sprite)
 
             floor_level_sprite = FloorLevelSprite(level+1, 50, floor_level_y-50)  # Adjust the position as needed
             floor_level_sprites.add(floor_level_sprite)
@@ -6799,14 +6910,18 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             # Create a sprite for dripping goo
             if level > 2 and (random.randint(0,100) <= 50):
                 goo_sprite = Drip_of_goo(WIDTH//3+20,WIDTH-24-ZUUL_CLIMB_WALL_WIDTH,floor_level_y+step_height)  # Adjust position as needed
-                if goo_sprite != None : goo_in_building.add(goo_sprite)
+                # Only add the new goo if it hasn't been killed
+                if goo_sprite.alive:
+                    goo_in_building.add(goo_sprite)
 
 
 
         # Create a sprite for dripping goo in the center
         if level > 2 and (random.randint(0,100) <= 50):
             goo_sprite = Drip_of_goo(WIDTH//2-25,WIDTH//2+25,floor_level_y+step_height)  # Adjust position as needed
-            if goo_sprite != None : goo_in_building.add(goo_sprite)
+            # Only add the new goo if it hasn't been killed
+            if goo_sprite.alive:
+                goo_in_building.add(goo_sprite)
 
         # CREATE WINDOWS
         if level != num_of_floors: # not the top floor
@@ -7513,10 +7628,15 @@ def bust_ghost_at_building(building=None):
 
 
         # chance of goo dropping from window:
-        if random.randint(0,100) > 0:
-            random_window = random.choice(windows_in_building.sprites())
-            window_goo = Drip_of_goo(random_window.rect.x, random_window.rect.x, random_window.rect.y+window_height, radius=window_width//4, outside=True)
-            goo_in_building.add(window_goo)
+        for buster in player.roster:
+            if buster.level >= LEVEL_MIN_BEFORE_GOO: # NOT EARLY GAME
+                if random.randint(0,100) <= WINDOW_GOO_PERCENT_CHANCE:
+                    random_window = random.choice(windows_in_building.sprites())
+                    window_goo = Drip_of_goo(random_window.rect.x, random_window.rect.x, random_window.rect.y+window_height, radius=window_width//4, outside=True)
+                    # Only add the new goo if it hasn't been killed
+                    if window_goo.alive:
+                        goo_in_building.add(window_goo)
+                    break
 
 
 
@@ -7634,6 +7754,9 @@ def bust_ghost_at_building(building=None):
                 for buster in ghostbusters_at_building.sprites():
                     buster.complete = True
                     buster.gain_experience(random.randint(0,5) + 5)
+                for goo in goo_in_building.sprites():
+                    if goo.falling:
+                        goo.kill()
 
 
 
@@ -7713,8 +7836,9 @@ def bust_ghost_at_building(building=None):
 
         # Update sprites
         traps_at_building.update()
-        ghostbusters_at_building.update(keys)
         ghosts_at_building.update()
+        ghostbusters_at_building.update(keys)
+        
         goo_in_building.update()
 
         # if len(ghostbusters_at_building.sprites()) <= 0:
@@ -7737,6 +7861,9 @@ def bust_ghost_at_building(building=None):
                 streams_crossed_death = True
                 # print("streams_crossed_death!!!!")
                 # return num_ghosts_busted, ghosts_captured
+                for goo in goo_in_building.sprites():
+                    if goo.falling:
+                        goo.kill()
 
 
         # Check if 1 minute has passed    
@@ -7766,6 +7893,12 @@ def bust_ghost_at_building(building=None):
                 for buster in ghostbusters_at_building:
                     buster.proton_pack_on = False
                     # PROTON_PACK_CHANNEL.stop()
+
+                for goo in goo_in_building.sprites():
+                    if goo.falling:
+                        goo.kill()
+
+
 
             
             if not playonce and not streams_crossed_death:
@@ -7877,6 +8010,15 @@ def bust_ghost_at_building(building=None):
             
 
         ### DRAW GHOSTS ###
+
+        for ghost in ghosts_at_building:
+            if ghost.taking_damage == True:
+                ...
+            else:
+                if not player.has('Image Intensifier'):
+                    ghost.image = make_image_transparent(ghost.image, SEMI_TRANSPARENT_ALPHA_MED)
+
+
         ghosts_at_building.draw(screen)
         for ghost in ghosts_at_building:
             ghost.draw_damage()
