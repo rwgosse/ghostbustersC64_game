@@ -3,6 +3,8 @@ import sys
 import random
 import math
 import time
+import hashlib
+import base64
 from collections import Counter
 
 from shapely.geometry import LineString
@@ -200,7 +202,7 @@ FIRST_RESPONDERS_DISCOUNT_PERCENT = 0.50
 CAR_SPEED_ON_MAP_FACTOR = 15
 
 # ****
-START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
+START_GAME = 0 # 0 for regular start, 1 for shortcut during tests
 # ****
 MUSIC_ON = 1
 
@@ -387,7 +389,6 @@ BUILDING09_IMAGE = pygame.image.load("./building9.png") # Train
 HQ_FACADE = pygame.image.load("./hq_facade.png") # GHOSTBUSTERS HQ FACADE
 BRICKS_FACADE = pygame.image.load("./bricks.png") # bricks FACADE
 PARK_FACADE = pygame.image.load("./park_facade.png") # bricks FACADE
-
 ZUUL_FACADE = pygame.image.load("./zuul_building_facade.png") # ZUUL buidling facade
 
 
@@ -472,7 +473,7 @@ list_of_names = ["Arthur", "Ali", "Aaliyah", "Evelyn", "Samuel", "Clara", "Alger
     "Sarah","Karen","Lisa","Nancy","Betty","Sandra","Margaret","Ashley","Kimberly","Emily","Donna","Michelle",
     "Carol","Amanda","Melissa","Deborah","Stephanie","Dorothy","Rebecca","Sharon","Laura","Cynthia","Amy",
     "Kathleen","Angela","Shirley","Brenda","Emma","Anna","Pamela","Nicole","Samantha","Katherine","Christine",
-    "Helen","Debra","Rachel","Carolyn","Janet","Maria","Catherine", "Diane","Olivia","Julie","Joyce",
+    "Helen","Debra","Rachel","Carolyn","Janet","Maria","Catherine", "Diane","Olivia","Julie","Joyce", "Richard",
     "Victoria","Ruth","Virginia","Lauren","Kelly","Christina","Joan","Evelyn","Judith","Andrea","Hannah",
     "Megan","Cheryl","Jacqueline","Martha","Madison","Teresa","Gloria","Sara","Janice","Ann","Kathryn",
     "Sophia","Frances","Jean","Alice","Judy","Isabella","Julia","Grace","Amber","Denise","Danielle",
@@ -490,6 +491,7 @@ class Player():
 
         self.name = ""
         self.cash_balance = 0
+        self.starting_cash_balance = self.cash_balance
         self.vehicle = None
         self.vehicle_items = []
         self.base = []
@@ -1212,6 +1214,28 @@ class Player_On_Map(pygame.sprite.Sprite):
 
                     player.fuel = player.vehicle['tank_size']
 
+
+                if self.below_building.name == "Bank":
+                    if not active_buildings.has(self.below_building):
+                        if player.cash_balance > player.starting_cash_balance:
+
+                            # SAVE GAME
+                            # Generate a 7 digit account number
+                            # when starting a new game, the player can enter their name and
+                            # this account number to start with the higher cash balance
+                            # this is recording a text file
+                            # Some sort of math or algorythim, combines the player name and this account number to
+                            # recover the high cash balance.
+                            # IE: player.name + account number = new cash balance
+                            player.starting_cash_balance = player.cash_balance
+                            account_number = save_game(player.name, player.starting_cash_balance)
+                            fee_card = create_savegame_card(screen, player.starting_cash_balance, account_number, self.below_building)
+                        else:
+                            print("insufficient bank balance to save")
+                    else:
+                        print("cannot save right now")
+
+
                 if self.below_building.name == "Zuul":
                     if (not game_over) and active_buildings.has(self.below_building):
 
@@ -1561,7 +1585,7 @@ class Drip_of_goo(pygame.sprite.Sprite):
                 
 
 class IndexCard:
-    def __init__(self, fee, fee_text, below_building, position, slide_direction="right"):
+    def __init__(self, fee, fee_text, below_building, position, slide_direction="right", savegame=False):
         """
         Initialize the index card.
         
@@ -1590,6 +1614,12 @@ class IndexCard:
         # logo_width = int(logo_height * (GB_SMALL.get_width() / GB_SMALL.get_height()))
         self.scaled_logo = pygame.transform.scale(GB_SMALL, (26,26))
 
+        self.savegame = savegame
+
+        self.display_time = CARD_DISPLAY_TIME
+        if self.savegame == True:
+            self.display_time = self.display_time*4
+
     def update(self):
         global fee_card
         """
@@ -1610,7 +1640,7 @@ class IndexCard:
 
         elif self.state == "visible":
             self.visible_time += 1
-            if self.visible_time >= CARD_DISPLAY_TIME:  # Display for ...
+            if self.visible_time >= self.display_time:  # Display for ...
                 self.state = "sliding_out"
 
         elif self.state == "sliding_out":
@@ -1635,7 +1665,7 @@ class IndexCard:
 
 
     def clear_card_manually(self):
-        self.visible_time = CARD_DISPLAY_TIME
+        self.visible_time = self.display_time
         self.state = "sliding_out"
 
     def draw(self, screen):
@@ -1664,7 +1694,7 @@ class IndexCard:
         line_spacing = 24
         line_y = header_logo_y + self.header_logo_size[1] + 5
 
-        if not self.isFine:
+        if not self.isFine and not self.savegame:
             
             screen.blit(self.scaled_header_logo, (header_logo_x, header_logo_y))
             # Render the company branding text
@@ -1674,6 +1704,11 @@ class IndexCard:
             line_y = self.position[1] + 20
             branding_text = ["Fine from the City"]
 
+        if self.savegame:
+            line_y = self.position[1] + 20
+            branding_text = ["City Bank"]
+
+            
         
 
         for i, line in enumerate(branding_text):
@@ -1683,10 +1718,19 @@ class IndexCard:
             line_y += i*line_spacing
             screen.blit(text_surface, (text_x, line_y))
 
+        if self.savegame:
+            # Draw a horizontal line below the City Bank text
+            line_start_x = self.current_x + 15  # Left margin
+            line_end_x = self.current_x + CARD_WIDTH - 15  # Right margin
+            line_y += line_spacing * 0.75  # Position slightly below the last text line
+            pygame.draw.line(screen, TEXT_COLOR, (line_start_x, line_y), (line_end_x, line_y), 2)  # 2px thick line
+
+
+
         line_spacing = 20
         
 
-        if not self.isFine and self.below_building is not None:
+        if not self.isFine and not self.savegame and self.below_building is not None:
 
 
             client_text = []
@@ -1729,45 +1773,50 @@ class IndexCard:
                     screen.blit(text_surface, (text_x, line_y))
 
                 
+        if not self.savegame:
+            line_y += line_spacing
+            line_spacing = 24
+            line = ("Fee: $ " + str(self.fee))
+            amount_color = GREEN
+            if self.isFine: 
+                line = ("Fine: $  " + str(self.fee))
+                amount_color = RED
+            text_surface = FONT24.render(line, True, amount_color)
+            text_width = text_surface.get_width()
+            text_x = self.current_x + 10
+            screen.blit(text_surface, (text_x, line_y))
 
-        line_y += line_spacing
-        line_spacing = 24
-        line = ("Fee: $ " + str(self.fee))
-        amount_color = GREEN
-        if self.isFine: 
-            line = ("Fine: $  " + str(self.fee))
-            amount_color = RED
-        text_surface = FONT24.render(line, True, amount_color)
-        text_width = text_surface.get_width()
-        text_x = self.current_x + 10
-        screen.blit(text_surface, (text_x, line_y))
 
 
+            line = ("Details:")
+            line_spacing = 22
+            text_surface = FONT22.render(line, True, TEXT_COLOR)
+            text_width = text_surface.get_width()
+            text_x = self.current_x + (CARD_WIDTH - text_width) // 2
+            line_y += line_spacing
+            screen.blit(text_surface, (text_x, line_y))
 
-        line = ("Details:")
-        line_spacing = 22
-        text_surface = FONT22.render(line, True, TEXT_COLOR)
-        text_width = text_surface.get_width()
-        text_x = self.current_x + (CARD_WIDTH - text_width) // 2
-        line_y += line_spacing
-        screen.blit(text_surface, (text_x, line_y))
+            # Draw a horizontal line below the details text
+            line_start_x = self.current_x + 15  # Left margin
+            line_end_x = self.current_x + CARD_WIDTH - 15  # Right margin
+            line_y += line_spacing * 0.75  # Position slightly below the last text line
+            pygame.draw.line(screen, TEXT_COLOR, (line_start_x, line_y), (line_end_x, line_y), 2)  # 2px thick line
 
-        # Draw a horizontal line below the details text
-        line_start_x = self.current_x + 15  # Left margin
-        line_end_x = self.current_x + CARD_WIDTH - 15  # Right margin
-        line_y += line_spacing * 0.75  # Position slightly below the last text line
-        pygame.draw.line(screen, TEXT_COLOR, (line_start_x, line_y), (line_end_x, line_y), 2)  # 2px thick line
+            # Render the fee details text
+            # line_y = line_y + line_spacing
 
-        # Render the fee details text
-        # line_y = line_y + line_spacing
-
-        logo_height = FONT22.size("Tg")[1] * 1.5
-        logo_width = int(logo_height * (GB_SMALL.get_width() / GB_SMALL.get_height()))
-        scaled_logo = pygame.transform.scale(GB_SMALL, (logo_width, logo_height))
+            logo_height = FONT22.size("Tg")[1] * 1.5
+            logo_width = int(logo_height * (GB_SMALL.get_width() / GB_SMALL.get_height()))
+            scaled_logo = pygame.transform.scale(GB_SMALL, (logo_width, logo_height))
 
 
         for i, line in enumerate(self.fee_text):
             text_surface = FONT22.render(line, True, TEXT_COLOR)
+            if self.savegame:
+                if not "Use your Name" in line:
+                    text_surface = FONT24.render(line, True, TEXT_COLOR)
+                    line_spacing = 26
+            
             text_width = text_surface.get_width()
 
             # Calculate positions for right alignment
@@ -1776,6 +1825,8 @@ class IndexCard:
             if self.below_building is not None:
                 if self.below_building.name == "Zuul":
                     text_x = self.current_x + (CARD_WIDTH - text_width) // 2  # Centered horizontally
+                if self.savegame:
+                    text_x = self.current_x + 15  # Left margin
 
             if "Class" in line or "Removal" in line:
                 # Adjust for the logo width
@@ -1798,6 +1849,12 @@ class IndexCard:
             "Thank you",
             "Press Space to Clear"
         ]
+        if self.savegame:
+            final_notes = [
+            "Thank you for using City Bank",
+            "Press Space to Clear"
+        ]
+
 
 
         
@@ -1880,6 +1937,29 @@ def create_fee_card(screen, fee, below_building, num_ghost_busted, ghosts_captur
     for captured_ghost in ghosts_captured:
         captured_ghost.kill()
     return fee_card
+
+
+def create_savegame_card(screen, balance, account_number, below_building):
+    fee_text = []
+    fee_text.append(f"")
+    fee_text.append(f"Game Saved")
+    fee_text.append(f"")
+    fee_text.append(f"Name:      {player.name}")
+    fee_text.append(f"Balance:  ${balance}")
+    fee_text.append(f"Account #  {account_number}")
+    fee_text.append(f"")
+    fee_text.append(f"")
+    fee_text.append(f"Use your Name and Account to recover your balance.")
+    
+    if below_building.rect.x >= WIDTH//2:
+        fee_card = IndexCard(balance, fee_text, below_building, (10, CARD_ORIGIN_Y), slide_direction="left", savegame=True)
+    else:
+        fee_card = IndexCard(balance, fee_text, below_building, (WIDTH - CARD_WIDTH - 10 , CARD_ORIGIN_Y), slide_direction="right",savegame=True)
+
+    # for captured_ghost in ghosts_captured:
+    #     captured_ghost.kill()
+    return fee_card
+
 
 # Function to handle the card creation
 def create_victory_card(screen, fee, below_building):
@@ -5072,15 +5152,25 @@ def start_loop():
     if has_account == "n":
         # Give $10,000 to the player
         player.cash_balance = NEW_GAME_CASH_ADVANCE
+        player.starting_cash_balance = player.cash_balance
         display_text_typewriter(f"\nIn that case, welcome to your new business.\nAs a new franchise owner, the bank will advance you $ {NEW_GAME_CASH_ADVANCE} for equipment.\nUse it wisely...\nGood Luck...", 50, linePosition)
     else:
         # Get player balance if they have an account
 
 
 
-        player.cash_balance = int(get_input_typewriter("Enter your account balance: $ ", 50, linePosition))
-        
-        display_text_typewriter(f"\nWelcome back...\n ",50, linePosition)
+        # player.cash_balance = int(get_input_typewriter("Enter your account balance: $ ", 50, linePosition))
+        account_number = int(get_input_typewriter("Enter your account number: $ ", 50, linePosition))
+        starting_balance = recover_game(player.name, account_number)
+        if starting_balance is not None:
+            player.cash_balance = starting_balance
+            player.starting_cash_balance = player.cash_balance
+            display_text_typewriter(f"\nWelcome back...\n ",50, linePosition)
+        else:
+            player.cash_balance = NEW_GAME_CASH_ADVANCE
+            player.starting_cash_balance = player.cash_balance
+            display_text_typewriter(f"Sorry, unable to find your account.\n",80, linePosition)
+            display_text_typewriter(f"In that case, welcome to your new business.\nAs a new franchise owner, the bank will advance you $ {NEW_GAME_CASH_ADVANCE} for equipment.\nUse it wisely...\nGood Luck...", 50, linePosition)
 
 
     display_two_color_typewriter("Your balance: $ ",player.cash_balance, 50, linePosition)
@@ -5099,8 +5189,9 @@ def purchase_car():
 
     # CHECK IF TESTING:
     if player.name == "" and player.cash_balance == 0:
-        player.name = "Game Tester"
+        player.name = "Tester"
         player.cash_balance = 50000
+        player.starting_cash_balance = player.cash_balance
 
     selected_index = 0
 
@@ -8409,6 +8500,73 @@ def display_trait_selection(screen, buster_traits):
         
         pygame.display.flip()
 
+
+# Simple XOR-based obfuscation
+def xor_encrypt(data, key=42):
+    """Encrypts/obfuscates the input data using XOR and Base64."""
+    xor_data = ''.join(chr(ord(char) ^ key) for char in data)
+    encoded_data = base64.b64encode(xor_data.encode()).decode()
+    return encoded_data
+
+def xor_decrypt(data, key=42):
+    """Decrypts the Base64-encoded and XOR-obfuscated input data."""
+    decoded_data = base64.b64decode(data).decode()
+    original_data = ''.join(chr(ord(char) ^ key) for char in decoded_data)
+    return original_data
+
+
+def calculate_checksum(player_name, account_number):
+    # Create a consistent checksum using hashlib
+    data = f"{player_name}{account_number}".encode()
+    checksum = int(hashlib.sha256(data).hexdigest(), 16) % 1000000
+    return checksum
+
+
+def save_game(player_name, cash_balance):
+    import random
+
+    # Generate account number and checksum
+    account_number = random.randint(1000000, 9999999)
+    checksum = calculate_checksum(player_name, account_number)
+    saved_balance = cash_balance + checksum
+
+    # Format the save data
+    save_data = f"{player_name},{account_number},{saved_balance}\n"
+
+    # Encrypt the save data
+    encrypted_data = xor_encrypt(save_data)
+
+    # Save the encrypted data to a file
+    with open("saves.dat", "a") as file:
+        file.write(encrypted_data + "\n")
+
+    print(f"Game saved! Account Number: {account_number}. Use this with your name to recover your balance.")
+    return account_number
+
+
+def recover_game(player_name, account_number):
+    try:
+        # Read and decrypt the save file
+        with open("saves.dat", "r") as file:
+            lines = file.readlines()
+
+        for line in lines:
+            # Decrypt each line
+            decrypted_data = xor_decrypt(line.strip())
+            saved_name, saved_account_number, saved_balance = decrypted_data.split(",")
+
+            if player_name == saved_name and int(account_number) == int(saved_account_number):
+                # Recover the cash balance
+                checksum = calculate_checksum(player_name, saved_account_number)
+                cash_balance = int(saved_balance) - checksum
+                print(f"Welcome back, {player_name}! Your recovered cash balance is ${cash_balance}.")
+                return cash_balance
+
+        print("No matching save found. Please check your name and account number.")
+        return None
+    except FileNotFoundError:
+        print("No saved games found.")
+        return None
 
 
 
