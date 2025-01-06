@@ -24,7 +24,7 @@ BAR_WIDTH = 80  # Width of each bar
 BAR_HEIGHT = 20
 BAR_SPACING = 10  # Space between bars
 TOP_OFFSET = 100  # Distance from the top of the screen
-MIN_CARD_FROM_PLAYER_DISTANCE = 50
+
 # ===== 
 
 # INDEX FEE CARD
@@ -35,6 +35,7 @@ CARD_BORDER_COLOR = (0, 0, 0)  # Black border
 TEXT_COLOR = (0, 0, 0)  # Black text
 CARD_DISPLAY_TIME = 320  # ticks
 CARD_ORIGIN_Y = 220
+MIN_CARD_FROM_PLAYER_DISTANCE = 50
 
 # Set up colors
 BLACK = (0, 0, 0)
@@ -232,8 +233,8 @@ GHOST_ESCAPE_TIME = 30000 # 1 minute = 60,000 milliseconds
 
 ZUUL_CLIMB_WALL_WIDTH = 40
 
-WINDOW_GOO_PERCENT_CHANCE = 25
-LEVEL_MIN_BEFORE_GOO = 1
+WINDOW_GOO_PERCENT_CHANCE = 33
+LEVEL_MIN_BEFORE_GOO = 2
 
 SEMI_TRANSPARENT_ALPHA_LOW = 64
 SEMI_TRANSPARENT_ALPHA_MED = 128
@@ -329,13 +330,14 @@ GHOST11_IMAGE = pygame.image.load("./ghost11.png")
 GHOST12_IMAGE = pygame.image.load("./ghost12.png")
 GHOST13_IMAGE = pygame.image.load("./ghost13.png")
 GHOST14_IMAGE = pygame.image.load("./ghost14.png")
+GHOST15_IMAGE = pygame.image.load("./ghost15.png")
 
 CEILING_GOO_IMAGE = pygame.image.load("./Ceiling_Slime.png")   
 DRIP_OF_GOO_IMAGE = pygame.image.load("./goo_drip.png")
 
 GHOST_IMAGE_LIST = [MAP_GHOST_IMAGE,GHOST2_IMAGE,GHOST3_IMAGE,GHOST4_IMAGE,GHOST5_IMAGE,GHOST6_IMAGE,
     GHOST7_IMAGE,GHOST8_IMAGE, GHOST9_IMAGE, GHOST10_IMAGE, GHOST11_IMAGE, GHOST12_IMAGE, GHOST13_IMAGE,
-    GHOST14_IMAGE
+    GHOST14_IMAGE, GHOST15_IMAGE
     ]
 
 # BUSTER_MAN_IMAGE1 = pygame.image.load("./gb/gb2.png")
@@ -2209,7 +2211,7 @@ class Ghost_at_building(pygame.sprite.Sprite):
 
         
         
-        # self.image = GHOST13_IMAGE # OVERRIDE IMAGE FOR TESTS
+        # self.image = GHOST15_IMAGE # OVERRIDE IMAGE FOR TESTS
 
         self.size = 48
         original_width, original_height = self.image.get_size()
@@ -7523,7 +7525,7 @@ def bust_ghost_at_building(building=None):
     # Create Ghost sprite
     num_ghosts = 1
     for buster in player.roster:
-        if buster.level > 1: # ONLY ONE GHOST EARLY GAME
+        if buster.level >= 2: # ONLY ONE GHOST EARLY GAME
             num_ghosts = random.choice([1,1,1,2])
             break
 
@@ -7630,13 +7632,16 @@ def bust_ghost_at_building(building=None):
         # chance of goo dropping from window:
         for buster in player.roster:
             if buster.level >= LEVEL_MIN_BEFORE_GOO: # NOT EARLY GAME
-                if random.randint(0,100) <= WINDOW_GOO_PERCENT_CHANCE:
+                chance_of_goo = random.randint(0,100)
+                print(chance_of_goo)
+                if chance_of_goo <= WINDOW_GOO_PERCENT_CHANCE:
                     random_window = random.choice(windows_in_building.sprites())
                     window_goo = Drip_of_goo(random_window.rect.x, random_window.rect.x, random_window.rect.y+window_height, radius=window_width//4, outside=True)
                     # Only add the new goo if it hasn't been killed
                     if window_goo.alive:
                         goo_in_building.add(window_goo)
-                    break
+                        break
+                break
 
 
 
@@ -7755,8 +7760,7 @@ def bust_ghost_at_building(building=None):
                     buster.complete = True
                     buster.gain_experience(random.randint(0,5) + 5)
                 for goo in goo_in_building.sprites():
-                    if goo.falling:
-                        goo.kill()
+                    goo.kill()
 
 
 
@@ -7862,8 +7866,7 @@ def bust_ghost_at_building(building=None):
                 # print("streams_crossed_death!!!!")
                 # return num_ghosts_busted, ghosts_captured
                 for goo in goo_in_building.sprites():
-                    if goo.falling:
-                        goo.kill()
+                    goo.kill()
 
 
         # Check if 1 minute has passed    
@@ -7895,8 +7898,7 @@ def bust_ghost_at_building(building=None):
                     # PROTON_PACK_CHANNEL.stop()
 
                 for goo in goo_in_building.sprites():
-                    if goo.falling:
-                        goo.kill()
+                    goo.kill()
 
 
 
