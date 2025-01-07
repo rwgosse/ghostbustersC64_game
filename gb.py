@@ -463,10 +463,10 @@ list_of_names = ["Arthur", "Ali", "Aaliyah", "Evelyn", "Samuel", "Clara", "Alger
     "Arabella", "Percival", "Cordelia", "Mortimer", "Theodora", "Atticus", "Seraphine", "Horatio", "Gwendolyn",
     "Ambrosia", "Theron", "James","Robert","John","Michael","David","William","Joseph","Thomas","Christopher",
     "Charles","Daniel","Matthew","Anthony","Mark","Donald","Steven","Andrew","Paul","Joshua","Kenneth",
-    "Brian","George","Timothy","Ronald","Jason","Edward","Jeffrey","Ryan","Jacob", "Nicholas","Eric",
+    "Brian","George","Timothy","Ronald","Jason","Edward","Jeffrey","Ryan","Jacob", "Nicholas","Eric", "Rick",
     "Jonathan","Stephen","Larry","Justin","Scott","Brandon","Benjamin","Samuel","Gregory","Alexander","Patrick",
     "Frank","Raymond","Jack","Dennis","Jerry","Tyler","Aaron","Jose","Adam","Nathan","Henry","Zachary","Douglas",
-    "Kyle","Noah","Ethan","Jeremy", "Christian","Keith","Roger","Terry","Austin","Sean","Gerald",
+    "Kyle","Noah","Ethan","Jeremy", "Christian","Keith","Roger","Terry","Austin","Sean","Gerald", "Elmer",
     "Carl","Harold","Dylan","Arthur","Lawrence","Jesse","Bryan","Billy","Bruce","Gabriel","Joe",
     "Alan","Juan","Albert","Willie","Elijah","Wayne","Randy","Vincent","Mason","Roy","Ralph","Bobby","Russell",
     "Philip","Eugene","Mary","Jennifer","Linda","Elizabeth","Barbara","Susan","Jessica",
@@ -478,7 +478,7 @@ list_of_names = ["Arthur", "Ali", "Aaliyah", "Evelyn", "Samuel", "Clara", "Alger
     "Megan","Cheryl","Jacqueline","Martha","Madison","Teresa","Gloria","Sara","Janice","Ann","Kathryn",
     "Sophia","Frances","Jean","Alice","Judy","Isabella","Julia","Grace","Amber","Denise","Danielle",
     "Marilyn","Beverly","Charlotte","Natalie","Theresa","Diana","Brittany","Doris","Kayla","Alexis","Lori",
-    "Marie", "Peter", "Egon", "Winston", "Ray", "Louis", "Dana", "Janine", "Lenny", "Walter", 
+    "Marie", "Peter", "Egon", "Winston", "Ray", "Louis", "Dana", "Janine", "Lenny", "Walter", "Ivan",
     "Oscar", "Eduardo", "Kylie", "Roland", "Garrett", "Abigail", "Erin", "Jillian", "Patricia", "Kevin",
     "Phoebe", "Trevor", "Gary", "Lucky", "Callie", "Sherman", "Lars", "Nadeem", "Hubert", "Logan"
     ]
@@ -1229,6 +1229,7 @@ class Player_On_Map(pygame.sprite.Sprite):
                             # IE: player.name + account number = new cash balance
                             player.starting_cash_balance = player.cash_balance
                             account_number = save_game(player.name, player.starting_cash_balance)
+                            VOICE_CHANNEL.play(VOICE_GHOSTBUSTERS)
                             fee_card = create_savegame_card(screen, player.starting_cash_balance, account_number, self.below_building)
                         else:
                             print("insufficient bank balance to save")
@@ -1940,21 +1941,21 @@ def create_fee_card(screen, fee, below_building, num_ghost_busted, ghosts_captur
 
 
 def create_savegame_card(screen, balance, account_number, below_building):
-    fee_text = []
-    fee_text.append(f"")
-    fee_text.append(f"Game Saved")
-    fee_text.append(f"")
-    fee_text.append(f"Name:      {player.name}")
-    fee_text.append(f"Balance:  ${balance}")
-    fee_text.append(f"Account #  {account_number}")
-    fee_text.append(f"")
-    fee_text.append(f"")
-    fee_text.append(f"Use your Name and Account to recover your balance.")
+    save_text = []
+    save_text.append(f"")
+    save_text.append(f"Game Saved")
+    save_text.append(f"")
+    save_text.append(f"  Name:      {player.name}")
+    save_text.append(f"  Balance:  ${balance}")
+    save_text.append(f"  Account #  {account_number}")
+    save_text.append(f"")
+    save_text.append(f"")
+    save_text.append(f"Use your Name and Account to recover your balance.")
     
     if below_building.rect.x >= WIDTH//2:
-        fee_card = IndexCard(balance, fee_text, below_building, (10, CARD_ORIGIN_Y), slide_direction="left", savegame=True)
+        fee_card = IndexCard(balance, save_text, below_building, (10, CARD_ORIGIN_Y), slide_direction="left", savegame=True)
     else:
-        fee_card = IndexCard(balance, fee_text, below_building, (WIDTH - CARD_WIDTH - 10 , CARD_ORIGIN_Y), slide_direction="right",savegame=True)
+        fee_card = IndexCard(balance, save_text, below_building, (WIDTH - CARD_WIDTH - 10 , CARD_ORIGIN_Y), slide_direction="right",savegame=True)
 
     # for captured_ghost in ghosts_captured:
     #     captured_ghost.kill()
@@ -2073,7 +2074,7 @@ class Building(pygame.sprite.Sprite):
                     active_buildings.remove(self)
                 self.active_duration = 0
 
-        if (self == player.mapSprite.below_building) and (active_buildings.has(self) or self.name in ["HQ", "Gas"]): 
+        if (self == player.mapSprite.below_building) and (active_buildings.has(self) or self.name in ["HQ", "Gas", "Bank"]): 
             # Update flashing outline
             self.flash_timer += 1
             if self.flash_timer % self.flash_interval == 0:
@@ -4104,14 +4105,27 @@ def draw_pk_meter(reading=None, alertLevel="none", silent=False):
  
 def draw_credits():
     global player
-    # Display player credits at the top
-    player_credits_text = FONT24.render(f'Credit: $ {player.cash_balance:04}', True, WHITE)
-    player_credits_box_width = 150
+    # Render the credit label and balance
+    credit_label_text = FONT24.render('Credit:', True, WHITE)
+    player_credits_text = FONT24.render(f'$ {player.cash_balance}', True, WHITE)
+
+    # Fixed box width that is wide enough for the largest balance ("$ 9999999")
+    player_credits_box_width = 160  # Fixed width for the box, sufficient for "$ 9999999"
+    
+    # Box height (dynamic based on text size)
     player_credits_box_height = player_credits_text.get_height() * 2
     player_credits_box_x = WIDTH - player_credits_box_width - 10
     player_credits_box_y = 10
+
+    # Draw the background box
     pygame.draw.rect(screen, BLUE, (player_credits_box_x, player_credits_box_y, player_credits_box_width, player_credits_box_height))
-    screen.blit(player_credits_text, (player_credits_box_x + 10, player_credits_box_y + 10))
+
+    # Position and render the "Credit:" text (aligned to the left)
+    screen.blit(credit_label_text, (player_credits_box_x + 10, player_credits_box_y + 10))
+
+    # Position and render the balance amount (aligned to the right)
+    balance_x = player_credits_box_x + player_credits_box_width - player_credits_text.get_width() - 10
+    screen.blit(player_credits_text, (balance_x, player_credits_box_y + 10))
 
 def draw_trap_warning():
     global player
@@ -4257,11 +4271,26 @@ def display_credits_while():
     global player
 
     linePosition = TOP_LINE_POSITION
+    # Render the "Credit: " label
     rendered_textA = FONT36.render("Credit: ", True, BLACK)
-    screen.blit(rendered_textA, (WIDTH - 200, linePosition))
-    rendered_textB = FONT36.render(" $" + str(player.cash_balance), True, WHITE)
-    screen.blit(rendered_textB, (WIDTH - 200 + rendered_textA.get_width() , linePosition))
-    linePosition += (rendered_textB.get_height() * 2)
+    # Render the balance
+    rendered_textB = FONT36.render(" $ " + str(player.cash_balance), True, WHITE)
+    
+    # Calculate the total width of both texts combined
+    total_width = rendered_textA.get_width() + rendered_textB.get_width()
+    
+    # Calculate the x-position for the label and balance so that they are right-aligned with padding of 10
+    x_position = WIDTH - total_width - 30  # 10 pixels padding from the right edge
+    
+    # Display the "Credit: " label
+    screen.blit(rendered_textA, (x_position, linePosition))
+    
+    # Display the balance, right after the label
+    screen.blit(rendered_textB, (x_position + rendered_textA.get_width(), linePosition))
+    
+    # Update the line position for the next line of text
+    linePosition += (rendered_textB.get_height() * 2) # is this needed?
+
 
 
 def display_ghostbuster_hq_text():
@@ -4465,12 +4494,9 @@ def display_shopping_credit_vehicle_header():
         player.vehicle = {"name": "Hearse", "cost": 4800, "speed": 90, "capacity": 9, "tank_size": 100}
 
     
-    rendered_textA = FONT36.render("Credit: ", True, BLACK)
-    screen.blit(rendered_textA, (WIDTH - 200, linePosition))
+    display_credits_while()
+    linePosition += FONT36.get_height()
 
-    rendered_textB = FONT36.render(" $" + str(player.cash_balance), True, WHITE)
-    screen.blit(rendered_textB, (WIDTH - 200 + rendered_textA.get_width() , linePosition))
-    linePosition += (rendered_textB.get_height() * 2)
 
     # Display player vehicle items on the right side
     rendered_text = FONT36.render(player.vehicle["name"], True, BLACK)
@@ -4486,7 +4512,7 @@ def display_vehicle_equipment():
     global player
     global linePosition
 
-    linePosition = 200
+    linePosition = 210
     # screen.fill(BROWN, (WIDTH - 300, linePosition, 300, HEIGHT - linePosition))
     rendered_textA = FONT36.render("Equipped: ", True, BLACK)
     screen.blit(rendered_textA, (WIDTH - 300, linePosition))
@@ -4877,21 +4903,28 @@ def display_text(text, x, y, this_font=FONT36, line_space=2, color=BLACK):
 def display_text_typewriter(text, x, y, this_font=FONT36, line_space=2, color=BLACK):
     global linePosition
 
-
     lines = text.split("\n")  # Split the text into lines
 
     for line in lines:
-        rendered_text = ""
         for i in range(len(line) + 1):
             rendered_text = this_font.render(line[:i], True, color)  # GAME INFO & PROMPT TEXT 
+            screen.fill(BROWN, (x, linePosition-2, WIDTH, this_font.get_height()+2))  # Clear the line area
             screen.blit(rendered_text, (x, linePosition))
             pygame.display.flip()
             pygame.time.delay(40)  # Adjust the delay for typing speed
             TYPE_SOUND.play()
 
+            # Handle events during rendering to block input
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()  # Exit the game if the player closes the window
+
         linePosition += (rendered_text.get_height() * line_space) + 1
 
-    return rendered_text
+    return True  # Indicate that the text has finished rendering
+
+
 
 # Function to display player's balance with dollar number in white
 def display_two_color_typewriter(textA, textB, x, y, this_font=FONT36, firstColor=BLACK, secondColor=WHITE):
@@ -5015,13 +5048,17 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
     global linePosition
     global choosing_car
     global sell_mode
-    
+
     input_text = ""
-    display_text_typewriter(prompt, x, y, this_font=this_font, color=color)
-    
+
+    # Wait for the prompt to fully render
+    is_rendered = display_text_typewriter(prompt, x, y, this_font=this_font, color=color)
+    if not is_rendered:
+        return  # Safeguard (though this will always return True)
+
+    # Allow input after the prompt is fully rendered
     while True:
         for event in pygame.event.get():
-
             if event.type == pygame.KEYDOWN:
                 TYPE_SOUND.play()
 
@@ -5036,64 +5073,50 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
                     if event.unicode.lower() == "e":
                         return "e"
 
-
-
                     elif event.key == pygame.K_LEFT:
                         return "x"
-
                     elif event.key == pygame.K_RIGHT:
                         return "e"
-
-
                     elif event.unicode.isdigit():
                         input_text = event.unicode
-                        # Display the digit on the same line as the prompt
-                        prompt_rendered = FONT36.render(prompt, True, color)
-                        input_rendered = FONT36.render(input_text, True, WHITE)
-                        screen.blit(prompt_rendered, (x, y))
-                        screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))  # Position the input_text next to the prompt
-                        pygame.display.flip()
                         return input_text
+
                 elif numeric_prompt:
                     if event.unicode.isdigit():
                         input_text = event.unicode
-                        # Display the digit on the same line as the prompt
-                        prompt_rendered = FONT36.render(prompt, True, color)
-                        input_rendered = FONT36.render(input_text, True, WHITE)
-                        screen.blit(prompt_rendered, (x, y))
-                        screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))  # Position the input_text next to the prompt
-                        pygame.display.flip()
                         return input_text
+
                 elif yes_no_prompt:
                     if event.unicode.lower() in ('y', 'n'):
                         input_text = event.unicode.lower()
-                        # Display 'y' or 'n' on the same line as the prompt
+
+                        # Render the prompt with the "y/n" input displayed
                         prompt_rendered = FONT36.render(prompt, True, color)
                         input_rendered = FONT36.render(input_text, True, WHITE)
-                        screen.blit(prompt_rendered, (x, y))
-                        screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))  # Position the input_text next to the prompt
-                        pygame.display.flip()
-                        return input_text
 
-                
+                        screen.fill(BROWN, (x, y-2, WIDTH, this_font.get_height()+2))
+                        screen.blit(prompt_rendered, (x, y))
+                        screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
+                        pygame.display.flip()
+
+                        return input_text
 
                 elif event.key == pygame.K_RETURN:
                     return input_text
-
                 elif event.key == pygame.K_BACKSPACE:
                     input_text = input_text[:-1]
                 else:
                     input_text += event.unicode
 
+                # Update the displayed text for other inputs
+                prompt_rendered = FONT36.render(prompt, True, color)
+                input_rendered = FONT36.render(input_text, True, WHITE)
 
-                if not choosing_car:
-                    # Re-render the input_text on a new line without repeating the prompt
-                    # screen.fill(BROWN, (x, y, WIDTH, font.get_height() * 2))
-                    prompt_rendered = FONT36.render(prompt, True, color)
-                    input_rendered = FONT36.render(input_text, True, WHITE)
-                    screen.blit(prompt_rendered, (x, y))
-                    screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))  # Position the input_text next to the prompt
-                    pygame.display.flip()
+                screen.fill(BROWN, (x, y-2, WIDTH, this_font.get_height()+2))
+                screen.blit(prompt_rendered, (x, y))
+                screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
+                pygame.display.flip()
+
 
 
 def start_loop():
@@ -5160,12 +5183,12 @@ def start_loop():
 
 
         # player.cash_balance = int(get_input_typewriter("Enter your account balance: $ ", 50, linePosition))
-        account_number = int(get_input_typewriter("Enter your account number: $ ", 50, linePosition))
+        account_number = int(get_input_typewriter("Enter your account number: # ", 50, linePosition))
         starting_balance = recover_game(player.name, account_number)
         if starting_balance is not None:
             player.cash_balance = starting_balance
             player.starting_cash_balance = player.cash_balance
-            display_text_typewriter(f"\nWelcome back...\n ",50, linePosition)
+            display_text_typewriter(f"\nWelcome back {player.name}.\n ",50, linePosition)
         else:
             player.cash_balance = NEW_GAME_CASH_ADVANCE
             player.starting_cash_balance = player.cash_balance
@@ -5173,7 +5196,7 @@ def start_loop():
             display_text_typewriter(f"In that case, welcome to your new business.\nAs a new franchise owner, the bank will advance you $ {NEW_GAME_CASH_ADVANCE} for equipment.\nUse it wisely...\nGood Luck...", 50, linePosition)
 
 
-    display_two_color_typewriter("Your balance: $ ",player.cash_balance, 50, linePosition)
+    display_two_color_typewriter("Your balance:  ", f"$ {player.cash_balance}", 50, linePosition)
     # Wait for any key press before proceeding
     get_input_typewriter("Press Any Key to Continue ", 50, linePosition, keyContinue=True)
     
@@ -5190,7 +5213,7 @@ def purchase_car():
     # CHECK IF TESTING:
     if player.name == "" and player.cash_balance == 0:
         player.name = "Tester"
-        player.cash_balance = 50000
+        player.cash_balance = 100000
         player.starting_cash_balance = player.cash_balance
 
     selected_index = 0
@@ -5222,11 +5245,11 @@ def purchase_car():
     for number, vehicle in VEHICLE_CHOICES.items():
         # display_two_color_typewriter(f"{number}.   {vehicle['name']}",f"   - ${vehicle['cost']}", 75, linePosition)
         if player.cash_balance >= vehicle['cost']:
-            display_two_color(f"{number}.   {vehicle['name']}",f"   - ${vehicle['cost']}",75, linePosition)
+            display_two_color(f"{number}.   {vehicle['name']}",f"     ${vehicle['cost']}",75, linePosition)
         else:
-            display_two_color(f"{number}.   {vehicle['name']}",f"   - ${vehicle['cost']}",75, linePosition, secondColor=RED)
+            display_two_color(f"{number}.   {vehicle['name']}",f"     ${vehicle['cost']}",75, linePosition, secondColor=RED)
 
-    display_two_color_typewriter("Your balance: $ ",player.cash_balance, 50, linePosition)
+    display_two_color_typewriter("Your balance:  ",f"$ {player.cash_balance}", 50, linePosition)
     display_text_typewriter(f"Press (1-{len(VEHICLE_CHOICES)}) to purchase car. ", 50, linePosition)
     choosing_car = True
     lastPos = linePosition
@@ -5263,11 +5286,11 @@ def purchase_car():
                 # print(number, selected_index)
                 pygame.draw.rect(screen, WHITE, (40, linePosition-(FONT36.get_height()*0.25), WIDTH - 700, FONT36.get_height()*1.5), 2)  # Highlight the selected hire
             if player.cash_balance >= vehicle['cost']:
-                display_two_color(f"{number}.   {vehicle['name']}",f"   - ${vehicle['cost']}",75, linePosition)
+                display_two_color(f"{number}.   {vehicle['name']}",f"     ${vehicle['cost']}",75, linePosition)
             else:
-                display_two_color(f"{number}.   {vehicle['name']}",f"   - ${vehicle['cost']}",75, linePosition, secondColor=RED)
+                display_two_color(f"{number}.   {vehicle['name']}",f"     ${vehicle['cost']}",75, linePosition, secondColor=RED)
 
-        display_two_color("Your balance: $ ",player.cash_balance, 50, linePosition)
+        display_two_color("Your balance:  ",f"$ {player.cash_balance}", 50, linePosition)
         display_text(f"Press (1-{len(VEHICLE_CHOICES)}) to purchase car. ", 50, linePosition)
         choosing_car = True
         lastPos = linePosition
@@ -8523,7 +8546,6 @@ def calculate_checksum(player_name, account_number):
 
 
 def save_game(player_name, cash_balance):
-    import random
 
     # Generate account number and checksum
     account_number = random.randint(1000000, 9999999)
