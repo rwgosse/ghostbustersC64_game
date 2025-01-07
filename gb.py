@@ -202,9 +202,9 @@ FIRST_RESPONDERS_DISCOUNT_PERCENT = 0.50
 CAR_SPEED_ON_MAP_FACTOR = 15
 
 # ****
-START_GAME = 0 # 0 for regular start, 1 for shortcut during tests
+START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
 # ****
-MUSIC_ON = 1
+MUSIC_ON = 0
 
 
 NEW_GAME_CASH_ADVANCE = 10000
@@ -240,6 +240,10 @@ LEVEL_MIN_BEFORE_GOO = 2
 
 SEMI_TRANSPARENT_ALPHA_LOW = 64
 SEMI_TRANSPARENT_ALPHA_MED = 128
+
+CURBSTONE_GAP = 20
+CURB_HEIGHT = 140
+CURB_WIDTH = 20
 
 # AUDIO CONSTANTS --------------------------------------------------------------------------
 pygame.mixer.init()
@@ -868,7 +872,7 @@ class Center_line_dash(pygame.sprite.Sprite):
         self.rect.y = y
         self.rel_speed = 1
 
-    def update(self,street_speed):
+    def update(self,street_speed,road_markings):
         speed = street_speed
 
         self.rect.y += speed*self.rel_speed
@@ -876,22 +880,37 @@ class Center_line_dash(pygame.sprite.Sprite):
             self.rect.y = 0
 
 class CurbStone(pygame.sprite.Sprite):
-    def __init__(self, x, y, size):
+    def __init__(self, x, y, spawn_next_curb=True):
         super(CurbStone, self).__init__()
-        self.image = pygame.Surface((20, size))
-        self.image.fill(DARK_GREY)  # White color for stars
+        self.image = pygame.Surface((CURB_WIDTH, CURB_HEIGHT))
+        self.image.fill(DARK_GREY)  
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
         self.rel_speed = 1
-        self.size = size
+        # self.size = CURB_HEIGHT
+        self.spawn_next_curb = spawn_next_curb
 
-    def update(self,street_speed):
+    def update(self,street_speed, road_markings):
         ...
         speed = street_speed
 
+        # speed = 0 # TEST
+
+        
+
         if self.rect.y > HEIGHT:
-            self.rect.y = -self.size
+            self.kill()
+            # self.rect.y = -self.size
+
+        
+
+        if self.spawn_next_curb:
+            if self.rect.y >= CURBSTONE_GAP:
+                new_curb_y = self.rect.y - CURBSTONE_GAP - CURB_HEIGHT
+                new_curb_stone = CurbStone(self.rect.x, new_curb_y)
+                road_markings.add(new_curb_stone) 
+                self.spawn_next_curb = False
 
         self.rect.y += speed*self.rel_speed
 
@@ -6542,6 +6561,7 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
     global vacuum_on
 
 
+
     give_fuel_barrel = give_fuel
 
 
@@ -6567,34 +6587,39 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
     # Create sprite groups
     street_ghosts = pygame.sprite.Group()
-    centerLine = pygame.sprite.Group()
+    road_markings = pygame.sprite.Group()
+
     dash = Center_line_dash(0)
-    centerLine.add(dash)
+    road_markings.add(dash)
     dash = Center_line_dash(HEIGHT//3)
-    centerLine.add(dash)
+    road_markings.add(dash)
     dash = Center_line_dash((HEIGHT//3)*2)
-    centerLine.add(dash)
+    road_markings.add(dash)
 
     barrels = pygame.sprite.Group()
 
 
-    numofcurbstones = 8
-    gap = 6
-    size = (HEIGHT-(numofcurbstones*gap)) // numofcurbstones 
-
     
-    # print(numofcurbstones, gap)
-    y = gap
-    i = 0
-    while i < numofcurbstones + 1:
-        leftcurb = CurbStone(BUILDING_MARGIN, y, size)
-        rightcurb = CurbStone(WIDTH-BUILDING_MARGIN, y, size)
-        centerLine.add(leftcurb)
-        centerLine.add(rightcurb)
-        y += size + gap  
-        i += 1
-        # print(y)
+   
 
+    # print(numofcurbstones, gap)
+    curbstone_y = HEIGHT
+    print("start: ", curbstone_y)
+    i = 0
+    while curbstone_y > 0:
+        spawn_next_curb = False
+        # if i == 8: spawn_next_curb = True
+        if curbstone_y <= CURB_HEIGHT: spawn_next_curb = True
+        leftcurb = CurbStone(BUILDING_MARGIN, curbstone_y, spawn_next_curb)
+        rightcurb = CurbStone(WIDTH-BUILDING_MARGIN, curbstone_y, spawn_next_curb)
+        road_markings.add(leftcurb)
+        road_markings.add(rightcurb)
+        
+        print("I ", i," : ", curbstone_y," : ", spawn_next_curb)
+
+        curbstone_y -= (CURB_HEIGHT + CURBSTONE_GAP)
+        i += 1
+        
 
 
 
@@ -6617,12 +6642,10 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
     car_speed = player.vehicle["speed"] // CAR_SPEED_ON_MAP_FACTOR
     
 
-    # Main game loop
-    clock = pygame.time.Clock()
-    start_time = pygame.time.get_ticks()  # Record the start time
+    
+    
     driving_duration = min(driving_time_to_destination,12)  # Set the driving duration in seconds, 14 is about 10 sirens
     driving_duration = max(3,driving_duration)  # Set the driving duration in seconds
-    driving = True
     ghost_interval = 0
     ghost_spawn_time = 1
     fuel_interval = 0
@@ -6631,17 +6654,19 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
     if number_of_sucked_ghosts > 0:
         ghost_interval = (driving_duration // (number_of_sucked_ghosts+1))
-        # print("number_of_sucked_ghosts:" + str(number_of_sucked_ghosts))
-        # print("driving_duration:" + str(driving_duration))
-        # print("interval:" + str(ghost_interval))
+    ghost_spawn_time = ghost_interval - 1        
 
     if give_fuel_barrel:
         fuel_interval = driving_duration // random.randint(2,4)
 
-    ghost_spawn_time = ghost_interval - 1
+
 
     last_pk_energy_increase_time = pygame.time.get_ticks()
 
+    # Main driving loop
+    clock = pygame.time.Clock()
+    start_time = pygame.time.get_ticks()  # Record the start time
+    driving = True
     while driving:
 
         # increase PK Level each other second
@@ -6651,9 +6676,6 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         if time_elapsed_since_last_increase >= 1000:  # Increase PK energy every 1000 milliseconds (1 second)
             pk_energy += 1
             last_pk_energy_increase_time = current_time
-
-        if not SIREN.get_busy():
-            SIREN.play(SIREN_SOUND)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -6670,32 +6692,27 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
             if car_x < WIDTH - vehicle_image.get_width() - BUILDING_MARGIN: ## PULL OVER TO SIDE OF ROAD
                 vacuum_on = False
                 PROTON_PACK_CHANNEL.stop()
-
                 car_x += 5
                 current_speed = 4
                 if car_y < HEIGHT - vehicle_image.get_height(): 
                     car_y += 5
+
             else:
-
-                # WHAT HAPPENS WHEN THE PLAYER REACHES DESTINATION??
-
-                
-
-                driving = False
+                # WHAT HAPPENS WHEN THE PLAYER REACHES DESTINATION
+                driving = False # EXIT THE LOOP
                 vacuum_on = False
                 PROTON_PACK_CHANNEL.stop()
 
-        else:
-            
+        else: # CONTINUE DRIVING
             if (number_of_sucked_ghosts > 0) and (elapsed_time >= ghost_spawn_time):
                 #spawn a ghost that needs sucking
-                # print("spawn ghost" + str(elapsed_time))
                 street_ghost = Street_Ghost()
                 street_ghosts.add(street_ghost)
                 number_of_sucked_ghosts -= 1
                 ghost_spawn_time += ghost_interval
 
             if give_fuel_barrel and (elapsed_time >= fuel_interval):
+                # spawn a fuel barrel
                 fuel_barrel = FuelBarrel()
                 barrels.add(fuel_barrel)
                 give_fuel_barrel = False
@@ -6708,7 +6725,6 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
                 car_x -= 8
             if keys[pygame.K_RIGHT] and car_x < WIDTH - vehicle_image.get_width() - BUILDING_MARGIN:
                 car_x += 8
-
 
             if keys[pygame.K_UP] and car_y > HEIGHT//4:
                 car_y -= 8
@@ -6751,9 +6767,9 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         # Draw the street background
         screen.fill(STREET_GREY)
         screen.fill(BROWN,(0,0,BUILDING_MARGIN,HEIGHT))
-        screen.fill(BROWN,(WIDTH-BUILDING_MARGIN,0,BUILDING_MARGIN,HEIGHT))
-        centerLine.update(current_speed)
-        centerLine.draw(screen)
+        screen.fill(BROWN,(WIDTH-BUILDING_MARGIN+CURB_WIDTH,0,BUILDING_MARGIN,HEIGHT))
+        road_markings.update(current_speed,road_markings)
+        road_markings.draw(screen)
 
         # Draw the Ghostbusters car
         showCar(vehicle_image, car_x, car_y)
@@ -6779,7 +6795,6 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         siren_image.blit(siren_circle, (0, 0))
         siren_image.blit(siren_logo, ((siren_size - siren_logo.get_width()) // 2, (siren_size - siren_logo.get_height()) // 2))
 
-
         # Draw the flashing circle and logo over the car
         screen.blit(siren_image, (car_x + vehicle_image.get_width() // 2 - siren_size // 2, car_y - 20 + vehicle_image.get_height()//2))
 
@@ -6793,8 +6808,6 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         textShown.update()
         textShown.draw(screen)
 
-
-
         draw_pk_meter()
         draw_credits()
         draw_fuel_meter()
@@ -6803,12 +6816,13 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
         # Draw and manage the fee card
         if fee_card:
-            #dt = clock.tick(60) / 1000.0  # Convert milliseconds to seconds
             fee_card.update()  # Updates the card's position and animation
         if fee_card:
             fee_card.draw(screen)
-            # if fee_card.is_expired():
-            #     fee_card = None  # Remove the card after the display time
+
+
+        if not SIREN.get_busy():
+            SIREN.play(SIREN_SOUND)
 
         pygame.display.flip()
         clock.tick(60)  # Adjust the frame rate as needed
