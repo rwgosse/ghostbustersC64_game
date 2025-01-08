@@ -202,9 +202,9 @@ FIRST_RESPONDERS_DISCOUNT_PERCENT = 0.50
 CAR_SPEED_ON_MAP_FACTOR = 15
 
 # ****
-START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
+START_GAME = 0 # 0 for regular start, 1 for shortcut during tests
 # ****
-MUSIC_ON = 0
+MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
@@ -258,6 +258,7 @@ VOICE_GHOSTBUSTERS = pygame.mixer.Sound("./voice_ghostbusters.mp3")
 VOICE_SLIMED = pygame.mixer.Sound("./voice_slimed.mp3")
 VOICE_LAUGH = pygame.mixer.Sound("./voice_laugh.mp3")
 VOICE_YELL = pygame.mixer.Sound("./voice_ahh.mp3") 
+VOICE_GHOSTBUSTERS_AND_LAUGH = pygame.mixer.Sound("./voice_ghostbusters_and_laugh.mp3")
 TRAP_OPEN_SOUND = pygame.mixer.Sound("./trap_open_fix_2.wav")
 TRAP_CLOSE_SOUND = pygame.mixer.Sound("./trap_close_fix_4.wav")
 TRAP_NO_SOUND = pygame.mixer.Sound("./trap_bar.wav")
@@ -5120,11 +5121,12 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
 
                         return input_text
 
-                elif event.key == pygame.K_RETURN:
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                     return input_text
                 elif event.key == pygame.K_BACKSPACE:
                     input_text = input_text[:-1]
-                else:
+
+                else: # add enter keys to string
                     input_text += event.unicode
 
                 # Update the displayed text for other inputs
