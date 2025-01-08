@@ -165,7 +165,8 @@ for_hire_roster = []
 shopping_equipment = False
 choosing_car = False
 
-
+BUILDING_MARGIN = 400
+HYDRANT_X_MARGIN = 300
 
 NUMBER_OF_MAX_ACTIVE_BUILDINGS = 4
 PROTON_CHARGE_PER_TICK = 0.025 #0.020
@@ -202,9 +203,9 @@ FIRST_RESPONDERS_DISCOUNT_PERCENT = 0.50
 CAR_SPEED_ON_MAP_FACTOR = 15
 
 # ****
-START_GAME = 0 # 0 for regular start, 1 for shortcut during tests
+START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
 # ****
-MUSIC_ON = 1
+MUSIC_ON = 0
 
 
 NEW_GAME_CASH_ADVANCE = 10000
@@ -258,7 +259,6 @@ VOICE_GHOSTBUSTERS = pygame.mixer.Sound("./voice_ghostbusters.mp3")
 VOICE_SLIMED = pygame.mixer.Sound("./voice_slimed.mp3")
 VOICE_LAUGH = pygame.mixer.Sound("./voice_laugh.mp3")
 VOICE_YELL = pygame.mixer.Sound("./voice_ahh.mp3") 
-VOICE_GHOSTBUSTERS_AND_LAUGH = pygame.mixer.Sound("./voice_ghostbusters_and_laugh.mp3")
 TRAP_OPEN_SOUND = pygame.mixer.Sound("./trap_open_fix_2.wav")
 TRAP_CLOSE_SOUND = pygame.mixer.Sound("./trap_close_fix_4.wav")
 TRAP_NO_SOUND = pygame.mixer.Sound("./trap_bar.wav")
@@ -380,6 +380,7 @@ KEY_IMAGE = pygame.image.load("./keymaster.png")
 GATE_IMAGE = pygame.image.load("./gatekeeper.png")
 
 FORKLIFT_IMAGE = pygame.image.load("./forklift.png")
+HYDRANT_IMAGE = pygame.image.load("./hydrant.png")
 
 BUILDING01_IMAGE = pygame.image.load("./building1.png") # FACTORY 
 BUILDING02_IMAGE = pygame.image.load("./building2.png")
@@ -879,6 +880,33 @@ class Center_line_dash(pygame.sprite.Sprite):
         self.rect.y += speed*self.rel_speed
         if self.rect.y > HEIGHT:
             self.rect.y = 0
+
+
+class Hydrant(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Hydrant, self).__init__()
+        # Load the hydrant image and scale it if necessary
+        self.image = HYDRANT_IMAGE  # Use convert_alpha() for transparency
+        
+        # Set the rect based on the image size
+        self.rect = self.image.get_rect()
+        
+        # Randomize initial position
+        self.rect.x = random.choice([HYDRANT_X_MARGIN, WIDTH - HYDRANT_X_MARGIN - self.rect.width])
+        self.rect.y = 0 - self.rect.height
+        self.rel_speed = 1
+
+
+    def update(self,street_speed, road_markings):
+        ...
+        speed = street_speed
+
+        # speed = 0 # TEST        
+
+        if self.rect.y > HEIGHT:
+            self.kill()
+        
+        self.rect.y += speed*self.rel_speed
 
 class CurbStone(pygame.sprite.Sprite):
     def __init__(self, x, y, spawn_next_curb=True):
@@ -2326,7 +2354,7 @@ class Ghost_at_building(pygame.sprite.Sprite):
 
         
         self.rect = self.image.get_rect()
-        self.rect.x = random.randint(0 + 150, WIDTH - self.image.get_width() - 150)
+        self.rect.x = random.randint(0 + 150 + 10, WIDTH - self.image.get_width() - 150 - 10)
         self.rect.y = random.randint(0, (HEIGHT-(HEIGHT*2/3)) - self.rect.height)
         self.inside = inside
         self.speed = random.randint(GHOST_SPEED_MIN,GHOST_SPEED_MAX)  # Adjust speed as needed
@@ -6567,7 +6595,7 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
     give_fuel_barrel = give_fuel
 
 
-    BUILDING_MARGIN = 400
+    
 
     siren_size = 30
 
@@ -6606,7 +6634,7 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
     # print(numofcurbstones, gap)
     curbstone_y = HEIGHT
-    print("start: ", curbstone_y)
+    # print("start: ", curbstone_y)
     i = 0
     while curbstone_y > 0:
         spawn_next_curb = False
@@ -6617,7 +6645,7 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         road_markings.add(leftcurb)
         road_markings.add(rightcurb)
         
-        print("I ", i," : ", curbstone_y," : ", spawn_next_curb)
+        # print("I ", i," : ", curbstone_y," : ", spawn_next_curb)
 
         curbstone_y -= (CURB_HEIGHT + CURBSTONE_GAP)
         i += 1
@@ -6660,6 +6688,10 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
 
     if give_fuel_barrel:
         fuel_interval = driving_duration // random.randint(2,4)
+
+    # print("driving_duration ", driving_duration)
+    hydrant_interval = driving_duration // (driving_duration//2)
+    hydrant_spawn_time = hydrant_interval - 1
 
 
 
@@ -6718,6 +6750,13 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
                 fuel_barrel = FuelBarrel()
                 barrels.add(fuel_barrel)
                 give_fuel_barrel = False
+
+
+            if elapsed_time >= hydrant_spawn_time:
+                hydrant = Hydrant()
+                road_markings.add(hydrant)
+                hydrant_spawn_time += hydrant_interval
+
 
 
 
@@ -6829,7 +6868,26 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         pygame.display.flip()
         clock.tick(60)  # Adjust the frame rate as needed
 
+################################################################################################
+def fight_gozer_on_roof(ghostbusters_entered_door): # FINAL FIGHT
+    global player
+    global selected_ghostbuster
+    global ghosts_at_building
+    global ghostbusters_at_building
+    global num_ghosts_busted
+    global elapsed_time
+    global floors_of_building
+    global goo_in_building
+    global floor_gap
+    global marshmallowed
+    global end_game
+    global game_over
 
+    
+############################# END FINAL FIGHT ###########################################################
+
+
+########################################################################################################
 def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BUILDING
     global player
     global selected_ghostbuster
