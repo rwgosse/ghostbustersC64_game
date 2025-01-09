@@ -51,14 +51,16 @@ ORANGE = (255, 165, 0)
 BLUE = (72, 58, 170)
 TRUE_BLUE = (0, 0, 255)
 SKY_BLUE = (135, 206, 235)
+NIGHT_SKY = (74, 66, 222)
 LIGHT_BLUE = (132, 197, 204)
 ABS_GREEN = (0, 255, 0)
 ABS_BLUE = (0, 0, 255)
 GREEN = (114, 177, 75)
 DARK_GREEN = (104, 167, 65)
-STREET_GREY = (100, 100, 100)  # Grey background for the street
 
+STREET_GREY = (100, 100, 100)  # Grey background for the street
 DARK_GREY = (25, 25, 25)  # Grey background for the street
+
 YELLOW = (255, 255, 0)  # Yellow color for the street line
 DARK_YELLOW = (150, 150, 0)
 TRANS_WHITE = (255, 255, 255, 100)
@@ -193,7 +195,7 @@ HAZARD_FEE = 250
 GHOST_HUNTER_TIP_FEE_MIN = 50
 GHOST_HUNTER_TIP_FEE_MAX = 200
 COUNSELING_FEE = 250
-VICTORY_OVER_GOZER_FEE = 5000
+VICTORY_OVER_GOZER_FEE = 10000
 
 DESTROYED_BUILDING_FINE = 1500
 STAY_PUFT_AT_ZUUL_FINE = 5000
@@ -205,12 +207,12 @@ CAR_SPEED_ON_MAP_FACTOR = 15
 # ****
 START_GAME = 1 # 0 for regular start, 1 for shortcut during tests
 # ****
-MUSIC_ON = 0
+MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 1000 # OG GAME WAS 9999, somewhere around 1000+ is better here
-NUM_FLOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
+ZUUL_END_GAME_PK_REQUIREMENT = 5 # OG GAME WAS 9999, somewhere around 1000+ is better here
+NUM_FLOORS_IN_ZUUL_BUILDING = 4 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
 GHOST_PK_MIN = 50
@@ -245,6 +247,8 @@ SEMI_TRANSPARENT_ALPHA_MED = 128
 CURBSTONE_GAP = 20
 CURB_HEIGHT = 140
 CURB_WIDTH = 20
+
+PORTAL_DOOR_TICK = 0.0075
 
 # AUDIO CONSTANTS --------------------------------------------------------------------------
 pygame.mixer.init()
@@ -396,6 +400,7 @@ HQ_FACADE = pygame.image.load("./hq_facade.png") # GHOSTBUSTERS HQ FACADE
 BRICKS_FACADE = pygame.image.load("./bricks.png") # bricks FACADE
 PARK_FACADE = pygame.image.load("./park_facade.png") # bricks FACADE
 ZUUL_FACADE = pygame.image.load("./zuul_building_facade.png") # ZUUL buidling facade
+GOZER_TEMPLE_FACADE = pygame.image.load("./Zuul_Roof.png") # ZUUL buidling facade
 
 
 stayPuft_images = [
@@ -1288,35 +1293,49 @@ class Player_On_Map(pygame.sprite.Sprite):
                 if self.below_building.name == "Zuul":
                     if (not game_over) and active_buildings.has(self.below_building):
 
+                        
+
                         # EVADE MR STAY PUFT AT DOORWAY !!!
                         ghostbusters_entered_door = evade_staypuft_at_doorway()
-
                         if len(ghostbusters_entered_door) >= NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF:
 
                             # end game climb stairs in zuul building
-                            success, num_ghost_busted = climb_stairs_in_building(ghostbusters_entered_door)
-                            MUSIC.unpause()
-                            if success:
-                                active_buildings.remove(self.below_building)
-                                marshmallowed = False 
-                                end_game = False 
-                                game_over = True
+                            ghostbuster_reached_roof = climb_stairs_in_building(ghostbusters_entered_door)
+                            if len(ghostbuster_reached_roof) >= NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF:
 
-                                fee = VICTORY_OVER_GOZER_FEE
-                                player.cash_balance += fee # VICTORY !!!!
-                                CASH_SOUND.play()
-                                point_text = PointText((player.mapSprite.rect.centerx, player.mapSprite.rect.y),"$" + str(fee) + " Reward", color=GREEN)
-                                textShown.add(point_text)
-                                all_sprites.add(point_text)
-
-                                mrStayPuft.sucked = True
-                                # VOICE_CHANNEL.play(VOICE_GHOSTBUSTERS)
-
-                                marshmallowed = False
+                                # END GAME FIGHT WITH GOZER, TO SEAL PORTAL
+                                portal_success = fight_gozer_on_roof(ghostbuster_reached_roof)
                                 
-                                mrStayPuft.kill()
-                                mrStayPuft = None
-                                fee_card = create_victory_card(screen, fee, self.below_building) 
+                                if portal_success:
+                                    MUSIC.play(THEME)
+                                    active_buildings.remove(self.below_building)
+                                    marshmallowed = False 
+                                    end_game = False 
+                                    game_over = True
+
+                                    fee = VICTORY_OVER_GOZER_FEE
+                                    player.cash_balance += fee # VICTORY !!!!
+                                    CASH_SOUND.play()
+                                    point_text = PointText((player.mapSprite.rect.centerx, player.mapSprite.rect.y),"$" + str(fee) + " Reward", color=GREEN)
+                                    textShown.add(point_text)
+                                    all_sprites.add(point_text)
+
+                                    mrStayPuft.sucked = True
+                                    # VOICE_CHANNEL.play(VOICE_GHOSTBUSTERS)
+
+                                    marshmallowed = False
+                                    
+                                    mrStayPuft.kill()
+                                    mrStayPuft = None
+                                    fee_card = create_victory_card(screen, fee, self.below_building)
+
+                                else: # failed defeat gozer and close portal
+                                    ...
+                            else: # failed to reach roof top
+                                ...
+                        else: # failed to pass mr. stay puft 
+                            ...
+
 
                 if self.below_building.name == "HQ":
                     enterOrExit_building(building=self.below_building)
@@ -3462,7 +3481,7 @@ class Ghostbuster(pygame.sprite.Sprite):
         self.ghost_target = None
         self.slimed = False
         self.proton_death_timer = 0
-        self.crossing_steams = False
+        self.crossing_streams = False
 
         self.stream_angle = 22
 
@@ -3470,6 +3489,7 @@ class Ghostbuster(pygame.sprite.Sprite):
         self.climbed_height = 0
         self.complete = False
         self.evading_stay_puft = False
+        self.fighting_gozer = False
 
     
 
@@ -3514,6 +3534,7 @@ class Ghostbuster(pygame.sprite.Sprite):
         self.animation_timer = pygame.time.get_ticks()
         self.complete = False
         self.evading_stay_puft = False
+        self.fighting_gozer = False
         self.ascendingStairs = False
         self.proton_death_timer = 0
         self.ghost_target = None
@@ -3530,6 +3551,7 @@ class Ghostbuster(pygame.sprite.Sprite):
         self.climbed_height = 0
         self.ascendingStairs = True
         self.evading_stay_puft = False
+        self.fighting_gozer = False
         self.complete = False
         self.proton_death_timer = 0
         self.ghost_target = None
@@ -3611,7 +3633,7 @@ class Ghostbuster(pygame.sprite.Sprite):
              #-------
 
             current_color = random.choice([RED, RED, DARK_RED, ORANGE, YELLOW, WHITE])
-            if self.crossing_steams: current_color=WHITE
+            if self.crossing_streams: current_color=WHITE
                 # Draw a red line at a 45-degree angle from the Ghostbuster
             line_length = 600
             # if self.ascendingStairs:
@@ -3627,8 +3649,18 @@ class Ghostbuster(pygame.sprite.Sprite):
 
             # Calculate the line_end based on the angle
             if self.ghost_target is None:
-                self.line_end = (self.line_start[0] + int(line_length * math.cos(angle_radians)),
-                            self.line_start[1] - int(line_length * math.sin(angle_radians)))
+
+                if self.fighting_gozer:
+                    self.line_end = (
+                        self.line_start[0] + int(line_length * math.cos(angle_radians)),
+                        max(240, self.line_start[1] - int(line_length * math.sin(angle_radians)))
+                    )
+
+
+                else:
+
+                    self.line_end = (self.line_start[0] + int(line_length * math.cos(angle_radians)),
+                                self.line_start[1] - int(line_length * math.sin(angle_radians)))
 
 
 
@@ -3881,8 +3913,10 @@ class Ghostbuster(pygame.sprite.Sprite):
                     self.rect.x = max(0 + self.trap_image.get_width(), min(WIDTH - self.rect.width - self.trap_image.get_width(), self.rect.x))
                     
                     if self.evading_stay_puft:
-                        # Limit movement within the lower third of the screen
                         self.rect.y = max(665, min(HEIGHT - 110, self.rect.y))
+
+                    elif self.fighting_gozer:
+                        self.rect.y = max(470, min(592, self.rect.y))
 
 
                     else:
@@ -3900,40 +3934,58 @@ class Ghostbuster(pygame.sprite.Sprite):
 
         if self.proton_pack_on:
             # self.proton_death_timer = 0
-            self.crossing_steams = False
+            self.crossing_streams = False
             for other_buster in ghostbusters_at_building:
                 if self is not other_buster:
                     if other_buster.proton_pack_on:
                         intersect_point = line_intersection(self.line_start, self.line_end, other_buster.line_start, other_buster.line_end)
                         if intersect_point is False:
                             # print("NO INTERSECT")
-                            self.proton_death_timer = 0
-                            other_buster.proton_death_timer = 0 
-                            self.crossing_steams = False
-                            other_buster.crossing_steams = False
+                            # self.proton_death_timer = 0
+                            # other_buster.proton_death_timer = 0 
+                            # self.crossing_streams = False
+                            # other_buster.crossing_streams = False
+                            ...
                         else:
                             if (self.ghost_target != other_buster.ghost_target) or (self.ghost_target == None):
-                                self.proton_death_timer += 1
-                                if self.proton_death_timer > MIN_BEFORE_STREAM_CROSS:
-                                    if not SIREN.get_busy():
-                                        SIREN.play(OVERHEAT_BEEP)
-                                    self.crossing_steams = True
+                                if not self.fighting_gozer:
                                     self.proton_death_timer += 1
-                                    if self.proton_death_timer > CROSS_STEAMS_DEATH_TIMER:
-                                        MUSIC.pause()
-                                        PKE_CHANNEL.stop()
-                                        self.getSlimed(voice=VOICE_YELL)
-                                        other_buster.getSlimed(voice=VOICE_YELL)
-                                        # PROTON_PACK_CHANNEL.stop()
+                                    if self.proton_death_timer > MIN_BEFORE_STREAM_CROSS:
+                                        if not SIREN.get_busy():
+                                            SIREN.play(OVERHEAT_BEEP)
+                                        self.crossing_streams = True
+                                        self.proton_death_timer += 1
+                                        if self.proton_death_timer > CROSS_STEAMS_DEATH_TIMER:
+                                            MUSIC.pause()
+                                            PKE_CHANNEL.stop()
+                                            self.getSlimed(voice=VOICE_YELL)
+                                            other_buster.getSlimed(voice=VOICE_YELL)
+                                            # PROTON_PACK_CHANNEL.stop()
+
+                                else: # FIGHTING GOZER
+                                    self.proton_death_timer += 1
+                                    if self.proton_death_timer > MIN_BEFORE_STREAM_CROSS:
+                                        if not SIREN.get_busy() and not self.complete:
+                                            SIREN.play(OVERHEAT_BEEP)
+                                        self.crossing_streams = True
+                                        self.proton_death_timer += 1
+                                        if self.proton_death_timer > CROSS_STEAMS_DEATH_TIMER:
+                                            MUSIC.pause()
+                                            PKE_CHANNEL.stop()
+                                            # self.getSlimed(voice=VOICE_YELL)
+                                            # other_buster.getSlimed(voice=VOICE_YELL)
+                                            # PROTON_PACK_CHANNEL.stop()
+                            break
                                         
                     else:
-                        self.proton_death_timer = 0
-                        other_buster.proton_death_timer = 0 
-                        self.crossing_steams = False
-                        other_buster.crossing_steams = False
+                        # self.proton_death_timer = 0
+                        # other_buster.proton_death_timer = 0 
+                        # self.crossing_streams = False
+                        # other_buster.crossing_streams = False
+                        ...
         else:# PACK OFF
             self.proton_death_timer = 0
-            self.crossing_steams = False
+            self.crossing_streams = False
             self.ghost_target = None
 
                                 
@@ -6868,20 +6920,260 @@ def drive_to_destination(driving_time_to_destination, number_of_sucked_ghosts, g
         pygame.display.flip()
         clock.tick(60)  # Adjust the frame rate as needed
 
+
+class GozerTempleDoor(pygame.sprite.Sprite):
+    def __init__(self):
+        super(GozerTempleDoor, self).__init__()
+        # Initial dimensions and position
+        self.width = 250
+        self.height = 0  # Start at 0 (not visible)
+        self.max_height = 520 - 240  # The height should grow from y=240 to y=520
+        self.x = 910
+        self.y = 240  # Fixed top origin point
+
+        # Create the initial surface
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill(DARK_GREY)  # Color for the door
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+
+    def update(self, progress):
+        """
+        Update the door's height based on progress.
+        :param progress: A value between 0 and 1 representing the crossing streams progress.
+        """
+        # Calculate new height (clamped between 0 and max_height)
+        self.height = max(0, min(int(self.max_height * progress), self.max_height))
+
+        # Update the image and rect to match the new height
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill(DARK_GREY)  # Maintain the door's color
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))  # Keep the top origin fixed
+
+
 ################################################################################################
-def fight_gozer_on_roof(ghostbusters_entered_door): # FINAL FIGHT
+def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
     global player
     global selected_ghostbuster
-    global ghosts_at_building
-    global ghostbusters_at_building
-    global num_ghosts_busted
+
+
+
     global elapsed_time
-    global floors_of_building
-    global goo_in_building
-    global floor_gap
-    global marshmallowed
-    global end_game
-    global game_over
+
+
+
+
+    # Create sprite groups
+
+    portal_door = pygame.sprite.Group()
+
+
+
+    # Create Ghostbuster sprites
+
+    roster = ghostbuster_reached_roof.sprites()
+    random.shuffle(roster) # randomize buster selection for each mission
+    length_roster = len(roster)
+
+    ghostbuster1 = None 
+    ghostbuster2 = None
+    ghostbuster3 = None
+    ghostbuster4 = None
+
+    left_most_buster = None
+
+
+    for buster in roster:
+        if ghostbuster1 == None:
+            if not buster.slimed:
+                ghostbuster1 = buster
+                ghostbuster1.set_for_building(BLUE, 200, 592)
+                ghostbuster1.fighting_gozer = True
+                ghostbuster1.last_left = False
+                ghostbusters_at_building.add(ghostbuster1)
+        elif ghostbuster2 == None:
+            if not buster.slimed:
+                ghostbuster2 = buster
+                ghostbuster2.set_for_building(RED, 150, 592)
+                ghostbuster2.fighting_gozer = True
+                ghostbuster2.last_left = False
+                ghostbusters_at_building.add(ghostbuster2)
+        elif ghostbuster3 == None:
+            if not buster.slimed:
+                ghostbuster3 = buster
+                ghostbuster3.set_for_building(YELLOW, 100, 592)
+                ghostbuster3.fighting_gozer = True
+                ghostbuster3.last_left = False
+                ghostbusters_at_building.add(ghostbuster3)
+        elif ghostbuster4 == None:
+            if not buster.slimed:
+                ghostbuster4 = buster
+                ghostbuster4.set_for_building(YELLOW, 50, 592)
+                ghostbuster4.fighting_gozer = True
+                ghostbuster4.last_left = False
+                ghostbusters_at_building.add(ghostbuster4)
+
+    selected_ghostbuster = ghostbuster1
+
+
+
+    left_most_buster = None
+    left_selected = False
+    left_most_buster_x = WIDTH
+
+    building_image = GOZER_TEMPLE_FACADE
+    
+
+    original_width, original_height = building_image.get_size()
+    aspect_ratio = original_width / original_height
+    new_height = 660 
+    new_width = int(new_height * aspect_ratio)
+    building_image = pygame.transform.scale(building_image, (new_width, new_height))
+
+    buildingX = WIDTH - new_width - 200
+    buildingY = 0
+
+
+    elapsed_time = 0
+    clock = pygame.time.Clock()
+    running = True
+    start_time = pygame.time.get_ticks()  # Get the start time in milliseconds 
+
+ 
+    portal_door.add(GozerTempleDoor())
+    portal_door_progress = 0
+    gozer_yelled = False
+
+    while running:
+
+
+
+        elapsed_time = pygame.time.get_ticks() - start_time
+
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                PROTON_PACK_CHANNEL.stop()
+                return False
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_TAB and not gozer_yelled:
+                    available_ghostbusters = [ghostbuster1, ghostbuster2, ghostbuster3, ghostbuster4]
+                    
+                    # Filter out None values
+                    available_ghostbusters = [ghostbuster for ghostbuster in available_ghostbusters if ghostbuster is not None]
+                    
+                    if available_ghostbusters:
+                        current_index = available_ghostbusters.index(selected_ghostbuster) if selected_ghostbuster in available_ghostbusters else -1
+                        next_index = (current_index + 1) % len(available_ghostbusters)
+                        selected_ghostbuster = available_ghostbusters[next_index]
+
+                elif event.key == (pygame.K_LCTRL or pygame.K_RCTRL) and not gozer_yelled:
+                    if not selected_ghostbuster.complete:
+
+                        if not selected_ghostbuster.proton_pack_on and not selected_ghostbuster.has_trap:
+
+                            selected_ghostbuster.proton_pack_on = True
+
+                        elif selected_ghostbuster.proton_pack_on:
+ 
+                            selected_ghostbuster.proton_pack_on = False
+
+
+
+
+        keys = pygame.key.get_pressed()
+
+
+        # Update sprites
+
+        ghostbusters_at_building.update(keys)
+
+        portal_door.update(portal_door_progress)
+
+        numSlimed = 0
+        for buster in ghostbusters_at_building:
+            if buster.slimed:
+                numSlimed += 1
+        if numSlimed >= len(ghostbusters_at_building.sprites()):
+            running = False
+            return False # FAILURE!!!!
+
+
+
+
+        
+        # Draw everything
+        screen.fill(NIGHT_SKY)
+        screen.blit(building_image, (buildingX, buildingY))
+
+        # Draw the DARK_GREY line below the building image
+        screen.fill(GREY, (0, buildingY + building_image.get_height() -20, WIDTH, 20))
+
+        # Fill the remaining space below the DARK_GREY line with STREET_GREY
+        screen.fill(STREET_GREY, (0, buildingY + building_image.get_height(), WIDTH, HEIGHT - (buildingY + building_image.get_height())))
+
+        portal_door.draw(screen)
+
+        ### GHOSTBUSTERS ###
+        # print(selected_ghostbuster.rect.x, selected_ghostbuster.rect.y)
+        proton_charge_color = DARK_RED
+        ghostbusters_at_building.draw(screen)
+        for buster in ghostbusters_at_building.sprites():
+            buster.display_name(screen)
+            if buster.proton_pack_on:
+                player.proton_charge -= PROTON_CHARGE_PER_TICK
+                buster.draw_Proton_Stream()
+                print(buster.name, " : ", buster.line_end)
+                proton_charge_color = random.choice([RED, RED, DARK_RED, ORANGE, YELLOW, WHITE])
+
+
+        if all(buster.crossing_streams for buster in ghostbusters_at_building.sprites()):
+            # Do something if all busters are crossing streams
+            print("All busters are crossing streams!")
+            if all(900 <= buster.line_end[0] <= 1160 for buster in ghostbusters_at_building.sprites()):
+                print("ALL INSIDE TARGET!")
+                for buster in ghostbusters_at_building.sprites(): buster.complete = True
+                portal_door_progress += PORTAL_DOOR_TICK
+                SIREN.stop()
+
+                if not VOICE_CHANNEL.get_busy() and not gozer_yelled:
+                    PROTON_PACK_CHANNEL.stop()
+                    VOICE_CHANNEL.play(VOICE_YELL)
+                    gozer_yelled = True
+
+                
+
+
+
+
+        ### DRAW GHOSTS ###
+
+        ####################
+
+        draw_proton_charge_meter(proton_charge_color)
+
+        # SOUNDS ######################################################
+
+        # Check if any ghostbuster has their proton pack on
+        any_proton_pack_on = any(buster.proton_pack_on for buster in ghostbusters_at_building.sprites())
+        if any_proton_pack_on and not gozer_yelled:
+            if not PROTON_PACK_CHANNEL.get_busy():
+                PROTON_PACK_CHANNEL.play(PROTON_FIRE_SOUND, loops=-1)  # Loop the sound continuously
+
+        else:
+            PROTON_PACK_CHANNEL.stop()
+
+        # ##############################################################
+
+        if gozer_yelled and portal_door_progress >= 1:
+            print("SUCCESS !!!!!")
+            ...
+            running = False
+            return True
+
+        pygame.display.flip()
+        clock.tick(60)
 
     
 ############################# END FINAL FIGHT ###########################################################
@@ -6915,6 +7207,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
     windows_in_building = pygame.sprite.Group()
     goo_in_building = pygame.sprite.Group()
 
+    ghostbuster_reached_roof =  pygame.sprite.Group()
 
     # Create Ghostbuster sprites
 
@@ -7308,14 +7601,16 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             else:
                 num_safe_busters += 1
 
-        if (num_safe_busters >= NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF): #all_busters_climbed_safe:
-            MUSIC.pause()
+        if (num_safe_busters >= NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF): #enough_busters_climbed_safe:
+            MUSIC.stop()
             PKE_CHANNEL.stop()
 
             for buster in ghostbusters_at_building:
                 buster.complete = True
                 buster.proton_pack_on = False
                 # PROTON_PACK_CHANNEL.stop()
+                if not buster.slimed:
+                    ghostbuster_reached_roof.add(buster) # buster progresses to next stage
 
             if not playonce:
                 VOICE_CHANNEL.play(VOICE_GHOSTBUSTERS)
@@ -7326,9 +7621,9 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
             if VOICE_CHANNEL.get_busy() and playonce:
                 ...
             elif (not VOICE_CHANNEL.get_busy()) and playonce:
-                ## END OF PLOT ##
+
                 running = False
-                return True, num_ghosts_busted
+                return ghostbuster_reached_roof # SUCCESS
 
         ### IF TOO MANY GHOSTBUSTERS ARE SLIMED:
         numOfGoodBusters = len(ghostbusters_at_building.sprites())  
@@ -7341,7 +7636,7 @@ def climb_stairs_in_building(ghostbusters_entered_door): # ASCENDING THE ZUUL BU
                     buster.complete = True
                     buster.proton_pack_on = False
                     # PROTON_PACK_CHANNEL.stop()
-                return False, 0
+                return ghostbuster_reached_roof # FAILURE
                 break
 
 
