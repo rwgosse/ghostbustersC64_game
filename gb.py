@@ -104,7 +104,21 @@ HAIR_White = (245, 245, 245)
 hair_choices = [HAIR_Blond, HAIR_DarkBlond, HAIR_MediumBrown, HAIR_DarkBrown, HAIR_ReddishBrown, HAIR_RedBlack, HAIR_BLACK, HAIR_Gray, HAIR_White]
 hair_weight = (6,6,6,6,6,6,50,6,6)
 
+STREET_NAMES = [
+    # "Park Ave",
+    "Union St",
+    "Broadway",
+    "Main St",
+    "Wall St",
+    "Canal St",
+    "Highland Ave",
+    "Riverside Dr",
+    "Madison Ave",
+    "Lexington Ave"
+    ]
 
+# random.shuffle(STREET_NAMES)
+AVENUE_NAMES = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th"]
 
 
 
@@ -211,8 +225,8 @@ MUSIC_ON = 1
 
 
 NEW_GAME_CASH_ADVANCE = 10000
-ZUUL_END_GAME_PK_REQUIREMENT = 5 # OG GAME WAS 9999, somewhere around 1000+ is better here
-NUM_FLOORS_IN_ZUUL_BUILDING = 4 # MUST BE EVEN # NOMINALLY 22 for regular game
+ZUUL_END_GAME_PK_REQUIREMENT = 1000 # OG GAME WAS 9999, somewhere around 1000+ is better here
+NUM_FLOORS_IN_ZUUL_BUILDING = 22 # MUST BE EVEN # NOMINALLY 22 for regular game
 NUM_BUSTER_REQUIRED_FOR_ZUUL_ROOF = 2
 
 GHOST_PK_MIN = 50
@@ -249,6 +263,7 @@ CURB_HEIGHT = 140
 CURB_WIDTH = 20
 
 PORTAL_DOOR_TICK = 0.0075
+GOZER_LOWER_Y = 592
 
 # AUDIO CONSTANTS --------------------------------------------------------------------------
 pygame.mixer.init()
@@ -326,6 +341,7 @@ GB_SMALL = pygame.image.load("./gb_small.png")  # Replace with your sprite sheet
 REDCROSS = pygame.image.load("./redcross.png")
 POLICE = pygame.image.load("./police.png")
 CROSS = pygame.image.load("./church_cross.png")
+BANK_SIGN = pygame.image.load("./bank.png") 
 
 MAP_GHOST_IMAGE = pygame.image.load("./ghost1.png")  # Replace with your sprite sheet image path
 GHOST2_IMAGE = pygame.image.load("./ghost2.png")  # Replace with your sprite sheet image path
@@ -2051,6 +2067,61 @@ def create_victory_card(screen, fee, below_building):
     return fee_card
 
 
+class StreetLabel(pygame.sprite.Sprite):
+    def __init__(self, text, x, y, color=WHITE, bg_color=GREEN, outline_color=BLACK, font=FONT24, padding_x=10, padding_y=5, border_radius=10, outline_thickness=2):
+        super().__init__()
+        self.text = text
+        self.font = font
+        self.color = color
+        self.bg_color = bg_color
+        self.outline_color = outline_color
+        self.outline_thickness = outline_thickness
+
+        # Render the text
+        text_surface = self.font.render(self.text, True, self.color)
+
+        # Add padding around the text
+
+        if text_surface.get_width() >= 28:
+            padding_x -= 2
+        self.width = text_surface.get_width() + 2 * padding_x
+
+        self.height = text_surface.get_height() + 2 * padding_y
+
+        # Create the image with transparency
+        self.image = pygame.Surface(
+            (self.width + 2 * self.outline_thickness, self.height + 2 * self.outline_thickness),
+            pygame.SRCALPHA
+        )
+
+        # Draw the outline
+        pygame.draw.rect(
+            self.image,
+            self.outline_color,
+            (0, 0, self.width + 2 * self.outline_thickness, self.height + 2 * self.outline_thickness),
+            border_radius=border_radius + self.outline_thickness
+        )
+
+        # Draw the background with the inner rectangle
+        pygame.draw.rect(
+            self.image,
+            self.bg_color,
+            (self.outline_thickness, self.outline_thickness, self.width, self.height),
+            border_radius=border_radius
+        )
+
+        # Blit the text onto the rounded rectangle
+        self.image.blit(text_surface, (self.outline_thickness + padding_x, self.outline_thickness + padding_y))
+
+        # Set the position of the label
+        self.rect = self.image.get_rect(topleft=(x, y))
+
+    def update(self):
+        # This can be used for animations or updates later if needed
+        pass
+
+
+
 # Create building class
 class Building(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name="None"):
@@ -2179,6 +2250,10 @@ class Building(pygame.sprite.Sprite):
                 sign = CROSS
                 sign_size_w = 35
                 sign_size_h = 50
+            if self.name == "Bank":
+                sign = BANK_SIGN
+                sign_size_w = 30
+                sign_size_h = 30
 
             if sign is not None:
                 # Create a small image surface (replace 'your_image_path.png' with the actual path of your image)
@@ -3777,33 +3852,27 @@ class Ghostbuster(pygame.sprite.Sprite):
 
             # WALKING ANIMATION -------
             if now - self.animation_timer >= 150: # Check if half a second has passed
-                if self == selected_ghostbuster:
+                if (self == selected_ghostbuster) or (self.complete):
                     # rotate to the next image
                     self.image_index = (self.image_index + 1) % len(self.images)
 
-                elif self.ascendingStairs:
-                    if self.complete:
-                        self.image_index = (self.image_index + 1) % len(self.images)
-                    else:
-                        # stay standing still
-                        self.image_index = 0
-
-                elif self.evading_stay_puft:
-                    # stay standing still
-                        self.image_index = 0
 
                 else:
-                    # IF ALL GHOSTS ARE TRAPPED:
-                    trapped = True  
-                    for ghost in ghosts_at_building.sprites():
-                        if not ghost.trapped:
-                            trapped = False
+                    # stay standing still
+                    self.image_index = 0
+
+                # else:
+                #     # IF ALL GHOSTS ARE TRAPPED:
+                #     trapped = True  
+                #     for ghost in ghosts_at_building.sprites():
+                #         if not ghost.trapped:
+                #             trapped = False
                         
-                    if trapped:
-                        self.image_index = (self.image_index + 1) % len(self.images)
-                    else:
-                        # stay standing still
-                        self.image_index = 0
+                #     if trapped:
+                #         self.image_index = (self.image_index + 1) % len(self.images)
+                #     else:
+                #         # stay standing still
+                #         self.image_index = 0
                 self.animation_timer = now  # Reset the timer
 
             
@@ -3916,7 +3985,8 @@ class Ghostbuster(pygame.sprite.Sprite):
                         self.rect.y = max(665, min(HEIGHT - 110, self.rect.y))
 
                     elif self.fighting_gozer:
-                        self.rect.y = max(470, min(592, self.rect.y))
+                        self.rect.y = GOZER_LOWER_Y
+                        # self.rect.y = max(470, min(592, self.rect.y)) # 470 592
 
 
                     else:
@@ -4272,6 +4342,27 @@ def draw_trap_warning():
             warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
             warning_y = HEIGHT - warning_text_rendered.get_height() - 10
             screen.blit(warning_text_rendered, (warning_x, warning_y))
+
+def draw_warning(message, warning_timer, show_warning):
+    warning_interval = 10
+    if message is not None:
+
+        warning_text_rendered = FONT36.render(message, True, YELLOW)
+
+        # Blit the warning text onto the screen
+        if warning_text_rendered is not None:
+            # Update flashing warning
+            warning_timer += 1
+            if warning_timer % warning_interval == 0:
+                show_warning = not show_warning
+            if show_warning:
+                # Calculate position to center the text at the bottom of the screen
+                warning_x = (WIDTH - warning_text_rendered.get_width()) // 2
+                warning_y = HEIGHT - warning_text_rendered.get_height() - 10
+                screen.blit(warning_text_rendered, (warning_x, warning_y))
+
+    return warning_timer, show_warning
+
 
 
 # Inside your game loop or update function
@@ -5194,7 +5285,7 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
                         prompt_rendered = FONT36.render(prompt, True, color)
                         input_rendered = FONT36.render(input_text, True, WHITE)
 
-                        screen.fill(BROWN, (x, y-2, WIDTH, this_font.get_height()+2))
+                        screen.fill(BROWN, (x, y-5, WIDTH, this_font.get_height()+10))
                         screen.blit(prompt_rendered, (x, y))
                         screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
                         pygame.display.flip()
@@ -5202,21 +5293,29 @@ def get_input_typewriter(prompt, x, y, this_font=FONT36, numeric_prompt=False, y
                         return input_text
 
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                    prompt_rendered = FONT36.render(prompt, True, color)
+                    input_rendered = FONT36.render(input_text, True, WHITE)
+                    screen.fill(BROWN, (x, y-5, WIDTH, this_font.get_height()+10))
+                    screen.blit(prompt_rendered, (x, y))
+                    screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
+                    
                     return input_text
+
                 elif event.key == pygame.K_BACKSPACE:
                     input_text = input_text[:-1]
 
                 else: # add enter keys to string
                     input_text += event.unicode
 
-                # Update the displayed text for other inputs
-                prompt_rendered = FONT36.render(prompt, True, color)
-                input_rendered = FONT36.render(input_text, True, WHITE)
+        if not keyContinue:
+            # Update the displayed text for other inputs
+            prompt_rendered = FONT36.render(prompt, True, color)
+            input_rendered = FONT36.render(input_text + "_", True, WHITE)
 
-                screen.fill(BROWN, (x, y-2, WIDTH, this_font.get_height()+2))
-                screen.blit(prompt_rendered, (x, y))
-                screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
-                pygame.display.flip()
+            screen.fill(BROWN, (x, y-5, WIDTH, this_font.get_height()+10))
+            screen.blit(prompt_rendered, (x, y))
+            screen.blit(input_rendered, (x + prompt_rendered.get_width(), y))
+            pygame.display.flip()
 
 
 
@@ -5299,7 +5398,7 @@ def start_loop():
 
     display_two_color_typewriter("Your balance:  ", f"$ {player.cash_balance}", 50, linePosition)
     # Wait for any key press before proceeding
-    get_input_typewriter("Press Any Key to Continue ", 50, linePosition, keyContinue=True)
+    get_input_typewriter("Press Any Key to Continue... ", 50, linePosition, keyContinue=True)
     
     
 
@@ -5530,8 +5629,6 @@ def equipment_shopping_loop(mode):
     pygame.draw.line(screen, BLACK, (30, linePosition - FONT36.get_height()//2), (WIDTH - 30, linePosition - FONT36.get_height()//2), 3)
     linePosition += (FONT36.get_height() * 2)
 
-    
-
     selected_index = 0  # Index of the currently selected
     fresh_purchase = False
     shopping_equipment = True
@@ -5560,6 +5657,8 @@ def equipment_shopping_loop(mode):
         # display_available_equip_list(equipment_choices)
         display_shopping_credit_vehicle_header()
         display_car_in_garage()
+
+        linePosition = 185
 
         update_available_equip_sprites()
         for item in equipment_sprites:
@@ -6307,6 +6406,7 @@ def generate_map():
     global breadcrumbs
     global buildings
     global active_buildings
+    global street_labels
     global player
     global clock
     global mapGhosts
@@ -6347,6 +6447,7 @@ def generate_map():
     mapGhosts = pygame.sprite.Group()
     breadcrumbs = pygame.sprite.Group()
     textShown = pygame.sprite.Group()
+    street_labels = pygame.sprite.Group()
 
     # Initialize PK energy reading
     pk_energy = 0000  # You can set the initial PK energy value
@@ -6408,6 +6509,23 @@ def generate_map():
                 all((x, y) != (px, py) for _, px, py in building_positions[:i])
             ):
                 building_positions[i] = (building_positions[i][0], x, y)
+
+                # Check if the building is "Park" and update street_names
+                if building_positions[i][0] == "Park":
+                    # Calculate the appropriate street index for the y-coordinate
+                    street_index = y+1
+                    if 0 <= street_index < len(STREET_NAMES):
+                        STREET_NAMES.insert(street_index, "Park Ave")
+
+
+                elif building_positions[i][0] == "Church":
+                    # Calculate the appropriate street index for the y-coordinate
+                    street_index = y+1
+                    if 0 <= street_index < len(STREET_NAMES):
+                        STREET_NAMES.insert(street_index, "Church St")
+
+
+
                 break
 
     # Create and add buildings to sprite groups
@@ -6439,6 +6557,12 @@ def generate_map():
 
 
 
+
+
+
+
+
+
     for building in buildings:
         if building.name == "HQ":
             # Create player and add to sprite groups
@@ -6454,6 +6578,38 @@ def generate_map():
             gatekeeper = Gatekeeper(building.rect.x + 10 + building.rect.width // 2, building.rect.bottom + 2, building)
             mapGhosts.add(gatekeeper)
             all_sprites.add(gatekeeper)
+
+
+    # Add street labels at the gaps between buildings
+    for j in range(GRID_HEIGHT + 1):  # GRID_HEIGHT + 1 to include the last street gap
+        if not ((j+1 == 1) or (j+1 == GRID_HEIGHT+1)):
+            street_name = STREET_NAMES[j % len(STREET_NAMES)]  # Loop through street names
+            # Calculate the y position of the gap
+            y_position = start_y + j * (BUILDING_SIZE_Y + STREET_SIZE) - (STREET_SIZE // 2) - 15
+
+            # Create the label (you can use placeholder names for now, e.g., "Street X")
+            street_label = StreetLabel(street_name, 
+                0+STREET_SIZE-10, y_position)
+
+            # Add the label to the sprite group
+            all_sprites.add(street_label)
+            street_labels.add(street_label)
+
+    # Add vertical avenue labels
+    for i in range(GRID_WIDTH):  # +1 to include the last gap on the right
+        if not (i+1 == 1) or (i+1 == GRID_WIDTH+1):
+            avenue_name = AVENUE_NAMES[i % len(AVENUE_NAMES)]  # Loop through street names
+            # Calculate the x position for the labels
+            avenue_x = start_x + i * (BUILDING_SIZE_X + STREET_SIZE) - (STREET_SIZE // 1) - 0
+            avenue_y = 10 + STREET_SIZE  # Align labels at the top of the screen
+
+            # Create the avenue label
+            avenue_label = StreetLabel(avenue_name,  # Replace this with your desired avenue naming scheme
+                avenue_x, avenue_y)
+
+            # Add the label to the sprite groups
+            all_sprites.add(avenue_label)
+            street_labels.add(avenue_label)
 
     return hq
 
@@ -6963,13 +7119,9 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
 
 
     # Create sprite groups
-
     portal_door = pygame.sprite.Group()
-
-
-
+    windows_in_building = pygame.sprite.Group()
     # Create Ghostbuster sprites
-
     roster = ghostbuster_reached_roof.sprites()
     random.shuffle(roster) # randomize buster selection for each mission
     length_roster = len(roster)
@@ -6986,28 +7138,28 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
         if ghostbuster1 == None:
             if not buster.slimed:
                 ghostbuster1 = buster
-                ghostbuster1.set_for_building(BLUE, 200, 592)
+                ghostbuster1.set_for_building(BLUE, 200, GOZER_LOWER_Y)
                 ghostbuster1.fighting_gozer = True
                 ghostbuster1.last_left = False
                 ghostbusters_at_building.add(ghostbuster1)
         elif ghostbuster2 == None:
             if not buster.slimed:
                 ghostbuster2 = buster
-                ghostbuster2.set_for_building(RED, 150, 592)
+                ghostbuster2.set_for_building(RED, 150, GOZER_LOWER_Y)
                 ghostbuster2.fighting_gozer = True
                 ghostbuster2.last_left = False
                 ghostbusters_at_building.add(ghostbuster2)
         elif ghostbuster3 == None:
             if not buster.slimed:
                 ghostbuster3 = buster
-                ghostbuster3.set_for_building(YELLOW, 100, 592)
+                ghostbuster3.set_for_building(YELLOW, 100, GOZER_LOWER_Y)
                 ghostbuster3.fighting_gozer = True
                 ghostbuster3.last_left = False
                 ghostbusters_at_building.add(ghostbuster3)
         elif ghostbuster4 == None:
             if not buster.slimed:
                 ghostbuster4 = buster
-                ghostbuster4.set_for_building(YELLOW, 50, 592)
+                ghostbuster4.set_for_building(YELLOW, 50, GOZER_LOWER_Y)
                 ghostbuster4.fighting_gozer = True
                 ghostbuster4.last_left = False
                 ghostbusters_at_building.add(ghostbuster4)
@@ -7032,6 +7184,30 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
     buildingX = WIDTH - new_width - 200
     buildingY = 0
 
+    building_center_x = WIDTH // 2
+    window_image = WINDOW7_IMAGE
+    window_width = window_image.get_width()
+    
+    # Define spacing between windows to distribute them evenly
+    total_spacing = WIDTH - (6 * window_width)  # Remaining space after accounting for window widths
+    gap_between_windows = total_spacing // 7  # Divide the remaining space into 6 gaps (5 windows = 6 gaps)
+
+    # Calculate the X positions for the 5 windows
+    window_x_positions = [
+        gap_between_windows,  # First window
+        gap_between_windows * 2 + window_width,  # Second window
+        gap_between_windows * 3 + 2 * window_width,  # Third window (center)
+        gap_between_windows * 4 + 3 * window_width,  # Fourth window
+        gap_between_windows * 5 + 4 * window_width,  # Fifth window
+    ]
+
+    window_y = HEIGHT - window_image.get_height() - 50
+    # Create the window instances
+    # Create and add the windows to the sprite group
+    for x in window_x_positions:
+        window = Window(x, window_y, window_image)
+        windows_in_building.add(window)
+
 
     elapsed_time = 0
     clock = pygame.time.Clock()
@@ -7042,6 +7218,10 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
     portal_door.add(GozerTempleDoor())
     portal_door_progress = 0
     gozer_yelled = False
+
+    # Warning text variables
+    warning_timer = 0
+    show_warning = False
 
     while running:
 
@@ -7113,6 +7293,12 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
         # Fill the remaining space below the DARK_GREY line with STREET_GREY
         screen.fill(STREET_GREY, (0, buildingY + building_image.get_height(), WIDTH, HEIGHT - (buildingY + building_image.get_height())))
 
+        # LEFT AND RIGHT GAPS:
+        screen.fill(NIGHT_SKY, (0, buildingY + building_image.get_height() -20, ZUUL_CLIMB_WALL_WIDTH, 750))
+        screen.fill(NIGHT_SKY, (WIDTH-ZUUL_CLIMB_WALL_WIDTH, buildingY + building_image.get_height() -20, ZUUL_CLIMB_WALL_WIDTH, 750))
+
+        windows_in_building.draw(screen)
+
         portal_door.draw(screen)
 
         ### GHOSTBUSTERS ###
@@ -7153,6 +7339,9 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
 
         draw_proton_charge_meter(proton_charge_color)
 
+        if not gozer_yelled:
+            warning_timer, show_warning = draw_warning("!! CROSS THE STREAMS !!", warning_timer, show_warning)
+
         # SOUNDS ######################################################
 
         # Check if any ghostbuster has their proton pack on
@@ -7166,7 +7355,7 @@ def fight_gozer_on_roof(ghostbuster_reached_roof): # FINAL FIGHT
 
         # ##############################################################
 
-        if gozer_yelled and portal_door_progress >= 1:
+        if (gozer_yelled) and (portal_door_progress >= 1) and (not VOICE_CHANNEL.get_busy()):
             print("SUCCESS !!!!!")
             ...
             running = False
